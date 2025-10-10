@@ -1,6 +1,8 @@
 from typing import Any, Dict, List
 from datetime import datetime, timedelta, time
 import re
+import logging
+import time as _time
 
 from django.db import transaction
 from rest_framework import serializers  # type: ignore
@@ -15,6 +17,8 @@ from .constants import (
     DAILY_ON_DUTY_LIMIT,
 )
 
+
+logger = logging.getLogger(__name__)
 
 class LogSheetSerializer(serializers.ModelSerializer):
     """
@@ -79,9 +83,15 @@ class LogSheetSerializer(serializers.ModelSerializer):
         Raises:
             ValidationError: If logsheet already exists or creation fails
         """
+        start_perf = _time.perf_counter()
         todays_date = datetime.now().strftime("%Y-%m-%d")
-
-
+        logger.debug(
+            "LogSheet.create called: driver=%s vehicle_no=%s pickup=%s dropoff=%s",
+            validated_data.get("driver"),
+            validated_data.get("vehicle_no"),
+            validated_data.get("pickup_location"),
+            validated_data.get("dropoff_location"),
+        )
 
         # Extract and validate location data
         current_address: str = validated_data["current_location"]
@@ -90,8 +100,11 @@ class LogSheetSerializer(serializers.ModelSerializer):
 
         # Convert addresses to coordinates for route planning
         current_coords = geocode_address(current_address)
+        logger.debug("Geocode current_location=%s -> %s", current_address, current_coords)
         end_coords = geocode_address(dropoff_address)
+        logger.debug("Geocode dropoff_location=%s -> %s", dropoff_address, end_coords)
         pickup_coords = geocode_address(pickup_location)
+        logger.debug("Geocode pickup_location=%s -> %s", pickup_location, pickup_coords)
 
         # Calculate multi-leg route distances
         leg1 = (
@@ -100,14 +113,18 @@ class LogSheetSerializer(serializers.ModelSerializer):
             if current_address != pickup_location
             else {"distance": 0, "duration": 0}
         )
+        logger.debug("Route leg1 result: %s", leg1)
         leg2 = get_route((pickup_coords['latitude'], pickup_coords['longitude']),
                           (end_coords['latitude'], end_coords['longitude']))
+        logger.debug("Route leg2 result: %s", leg2)
         total_distance = leg1["distance"] + leg2["distance"]
+        logger.info("Total route distance computed: %.2f (leg1=%.2f, leg2=%.2f)", float(total_distance), float(leg1["distance"]), float(leg2["distance"]))
 
         # Calculate fueling stops based on total distance
         fueling_stops: List[Dict[str, Any]] = []
         if total_distance > FUELING_INTERVAL_MILES:
             num_fueling_stops = int(total_distance // FUELING_INTERVAL_MILES)
+            logger.debug("Total distance %.2f > fueling interval %s -> num_fueling_stops=%d", float(total_distance), FUELING_INTERVAL_MILES, num_fueling_stops)
             for i in range(num_fueling_stops):
                 stop_location = pickup_location if i == 0 else dropoff_address
                 fueling_stops.append({
@@ -116,6 +133,7 @@ class LogSheetSerializer(serializers.ModelSerializer):
                     "distance": (i + 1) * FUELING_INTERVAL_MILES
                 })
 
+        logger.debug("Stops assembled: pickup + %d fueling + dropoff", len(fueling_stops))
         # Combine all stops including pickup, fueling, and dropoff
         stops: List[Any] = [
             {"type": "pickup", "location": pickup_location, "duration_hours": PICKUP_DROPOFF_HOURS},
@@ -124,27 +142,39 @@ class LogSheetSerializer(serializers.ModelSerializer):
         ]
 
         try:
+            tx_start = _time.perf_counter()
             with transaction.atomic():
                 # Create logsheet with all route and stop information
                 logsheet = LogSheet.objects.create(
-                    driver=validated_data.get("driver", "Driver"),
-                    current_location=current_address,
-                    pickup_location=pickup_location,
-                    dropoff_location=dropoff_address,
-                    vehicle_no=validated_data["vehicle_no"],
-                    start_coords=current_coords,
-                    end_coords=end_coords,
-                    trailer_no=validated_data.get("trailer_no", ""),
-                    pickup_coords=pickup_coords,
-                    total_mileage=total_distance,
-                    shipper=validated_data["shipper"],
-                    commodity=validated_data["commodity"],
-                    current_cycle_hours=validated_data["current_cycle_hours"],
-                    stops=stops,
+                   driver=validated_data.get("driver", "Driver"),
+                   current_location=current_address,
+                   pickup_location=pickup_location,
+                   dropoff_location=dropoff_address,
+                   vehicle_no=validated_data["vehicle_no"],
+                   start_coords=current_coords,
+                   end_coords=end_coords,
+                   trailer_no=validated_data.get("trailer_no", ""),
+                   pickup_coords=pickup_coords,
+                   total_mileage=total_distance,
+                   shipper=validated_data["shipper"],
+                   commodity=validated_data["commodity"],
+                   current_cycle_hours=validated_data["current_cycle_hours"],
+                   stops=stops,
                 )
                 logsheet.save()
+                tx_elapsed = _time.perf_counter() - tx_start
+                total_elapsed = _time.perf_counter() - start_perf
+                logger.info(
+                    "Created LogSheet id=%s driver=%s total_mileage=%.2f tx_time=%.4fs total_time=%.4fs",
+                    logsheet.id,
+                    logsheet.driver,
+                    float(total_distance),
+                    tx_elapsed,
+                    total_elapsed,
+                )
                 return logsheet
         except Exception as e:
+            logger.exception("Error creating LogSheet (driver=%s vehicle_no=%s): %s", validated_data.get("driver"), validated_data.get("vehicle_no"), e)
             raise ValidationError({
                 "error": "Error creating LogSheet",
                 "success": False,
@@ -152,6 +182,7 @@ class LogSheetSerializer(serializers.ModelSerializer):
             })
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
+        logger.debug("LogSheet.validate called with keys=%s", list(attrs.keys()))
         """Validate basic logsheet fields before creation.
 
         Checks presence of address fields, ensures pickup != dropoff,
@@ -238,8 +269,9 @@ class LogEntrySerializer(serializers.ModelSerializer):
         Raises:
             ValidationError: If HOS rules are violated or creation fails
         """
-        print("Creating LogEntry with data:", validated_data)
-        # Extract and validate time-related data
+        start_perf = _time.perf_counter()
+        logger.debug("LogEntry.create called: log_id=%s duty_status=%s activity=%s", validated_data.get("log_id"), validated_data.get("duty_status"), validated_data.get("activity"))
+         # Extract and validate time-related data
         sheet_id = validated_data.pop("log_id", None)
         startTime = validated_data.pop("startTime", None)
         todays_date = datetime.now().strftime("%Y-%m-%d")
@@ -248,17 +280,17 @@ class LogEntrySerializer(serializers.ModelSerializer):
             with transaction.atomic():
                 # Validate logsheet existence
                 logsheet = validated_data["_logsheet_obj"]
-
                 # Get location coordinates and calculate duration
                 location_coords = geocode_address(validated_data["location"])
+                logger.debug("Geocode log entry location=%s -> %s", validated_data["location"], location_coords)
 
                 # Run HOS checker before creation
-              
-                computed_value: Dict[str: Any]  = validated_data["_computed"] 
+            
+                computed_value: Dict[str, Any]  = validated_data["_computed"] 
                 start_time = computed_value["start_time"]
                 end_time = computed_value["end_time"]
                 duration = computed_value["duration"]
-                print(f"Computed values - Start: {start_time}, End: {end_time}, Duration: {duration}")
+                logger.debug("Computed values - start_time=%s end_time=%s duration=%.2f", start_time, end_time, float(duration))
                 # Create log entry
                 logentry = LogEntry.objects.create(
                     logsheet=logsheet,
@@ -319,10 +351,25 @@ class LogEntrySerializer(serializers.ModelSerializer):
                     logsheet.off_duty += total_time
 
                 logsheet.save()
+                total_elapsed = _time.perf_counter() - start_perf
+                logger.info(
+                    "Created LogEntry id=%s logsheet=%s duty_status=%s duration=%.2f total_time=%.4fs on_duty=%.2f driving=%.2f off_duty=%.2f berth=%.2f",
+                    logentry.id,
+                    logsheet.id,
+                    validated_data.get('duty_status'),
+                    float(duration),
+                    total_elapsed,
+                    float(logsheet.on_duty),
+                    float(logsheet.driving),
+                    float(logsheet.off_duty),
+                    float(logsheet.berth),
+                )
                 return logentry
         except ValidationError as ve:
-            raise 
+            logger.warning("ValidationError creating LogEntry: %s", ve)
+            raise
         except Exception as e:
+            logger.exception("Unexpected error creating LogEntry: %s", e)
             raise ValidationError({
                 "error": "Error creating LogEntry",
                 "success": False,
@@ -330,6 +377,7 @@ class LogEntrySerializer(serializers.ModelSerializer):
             })
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
+        logger.debug("LogEntry.validate called: log_id=%s span=%s startTime=%s duty_status=%s", attrs.get("log_id"), attrs.get("span"), attrs.get("startTime"), attrs.get("duty_status"))
         """Validate incoming log entry data before attempting DB writes.
 
         Performs format checks for span and startTime, ensures logsheet exists for today,
@@ -395,6 +443,7 @@ class LogEntrySerializer(serializers.ModelSerializer):
         try:
             location_coords = geocode_address(attrs.get("location", ""))
         except Exception as e:
+            logger.debug("Location validation failed for %s: %s", attrs.get("location", ""), e)
             raise ValidationError({
                 "error": "Location validation failed",
                 "success": False,
@@ -407,6 +456,7 @@ class LogEntrySerializer(serializers.ModelSerializer):
         # Validate logsheet existence
         logsheet = LogSheet.objects.filter(id=sheet_id, date=todays_date).first()
         if not logsheet:
+            logger.debug("LogSheet not found for id=%s date=%s", sheet_id, todays_date)
             raise ValidationError({
                 "error": "LogSheet not found",
                 "success": False,
@@ -445,6 +495,7 @@ class LogEntrySerializer(serializers.ModelSerializer):
             })
 
         try:
+            logger.debug("Running hos_checker for logsheet=%s duty=%s duration=%.2f end_time=%s", logsheet.id, attrs["duty_status"], duration, end_time)
             hos_checker(logsheet, attrs["duty_status"], duration, end_time)
         except ValidationError:
             raise
@@ -456,4 +507,5 @@ class LogEntrySerializer(serializers.ModelSerializer):
             })
 
         attrs["_computed"] = {"start_time": start_time, "end_time": end_time, "duration": duration}
+        logger.debug("LogEntry.validate successful for log_id=%s computed=%s", sheet_id, attrs["_computed"])
         return attrs

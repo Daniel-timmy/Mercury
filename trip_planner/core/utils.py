@@ -3,6 +3,8 @@ import requests
 from dotenv import load_dotenv
 import os
 from rest_framework.serializers import ValidationError  # type: ignore
+import logging
+import time as _time
 
 from datetime import datetime, timedelta, time
 from .models import LogSheet
@@ -11,6 +13,8 @@ from .constants import CYCLE_LIMIT, DAILY_DRIVING_LIMIT, DAILY_ON_DUTY_LIMIT
 load_dotenv()
 
 API_KEY: str | None = os.environ.get('API_KEY')
+
+logger = logging.getLogger(__name__)
 
 def geocode_address(address: str) -> Dict[str, float]:
     """
@@ -25,6 +29,8 @@ def geocode_address(address: str) -> Dict[str, float]:
     Raises:
         ValidationError: If no coordinates are found for the address.
     """
+    start_perf = _time.perf_counter()
+    logger.debug("geocode_address called: address=%s", address)
     url: str = f"https://us1.locationiq.com/v1/search?key={API_KEY}&q={address}&format=json&"
     headers: Dict[str, str] = {"accept": "application/json"}
 
@@ -32,13 +38,24 @@ def geocode_address(address: str) -> Dict[str, float]:
     data: Dict[int, Any] = response.json()
 
     if not data:
+        logger.error("Geocoding failed for address=%s: no data returned", address)
         raise ValidationError({
             "error": "Geocoding failed",
             "success": False,
             "msg": f"No coordinates found for address: {address}"
         })
+    logger.debug()
+    try:
+        result: Dict[str, float] = {'longitude': data[0]['lon'], "latitude": data[0]['lat']}
+        elapsed = _time.perf_counter() - start_perf
+        logger.debug("Geocoded address=%s -> %s (%.4fs)", address, result, elapsed)
+    except KeyError as e:
+        raise ValidationError({
+            "error": "Geocoding failed",
+            "success": False,
+            "msg": f"Error parsing geocoding response for address: {address} - {str(e)} {data}"
+        })
 
-    result: Dict[str, float] = {'longitude': data[0]['lon'], "latitude": data[0]['lat']}
     return result
 
 def get_route(start_coords: Tuple[float, float], end_coords: Tuple[float, float]) -> Dict[str, float]:
@@ -52,6 +69,8 @@ def get_route(start_coords: Tuple[float, float], end_coords: Tuple[float, float]
     Returns:
         Dict[str, float]: A dictionary containing distance in miles and duration in hours.
     """
+    start_perf = _time.perf_counter()
+    logger.debug("get_route called: start=%s end=%s", start_coords, end_coords)
     url: str = f"http://router.project-osrm.org/route/v1/driving/{start_coords[1]},{start_coords[0]};{end_coords[1]},{end_coords[0]}"
     params: Dict[str, str] = {"overview": "full", "geometries": "polyline"}
 
@@ -61,15 +80,18 @@ def get_route(start_coords: Tuple[float, float], end_coords: Tuple[float, float]
         data: Any = response.json()["routes"][0]
         distance_miles: float = data["distance"] / 1609.34  # Convert meters to miles
         duration_hours: float = data["duration"] / 3600  # Convert seconds to hours
+        elapsed = _time.perf_counter() - start_perf
+        logger.debug("Route result: distance=%.2fmi duration=%.2fh (%.4fs)", distance_miles, duration_hours, elapsed)
         return {"distance": distance_miles, "duration": duration_hours}
     except requests.RequestException as e:
-        print(f"Request error: {str(e)}")
+        logger.error("Route request error: %s", str(e))
         raise ValidationError({
             "error": "Route request error",
             "success": False,
             "msg": f"Request error: {str(e)}"
         })
     except (KeyError, IndexError) as e:
+        logger.error("Routing error: %s", str(e))
         raise ValidationError({
             "error": "Routing error",
             "success": False,
@@ -112,6 +134,7 @@ def hos_checker(
     Raises:
         ValidationError: If any HOS rule is violated.
     """
+    logger.debug("hos_checker called: logsheet_id=%s duty_status=%s duration=%.2f end_time=%s", getattr(logsheet, 'id', None), duty_status, duration, end_time)
     proposed_driving: float = logsheet.driving
     proposed_on_duty: float = logsheet.on_duty
     proposed_total_on_duty_day: float = logsheet.driving + logsheet.on_duty
@@ -125,6 +148,7 @@ def hos_checker(
 
     # Check daily driving limit
     if proposed_driving > DAILY_DRIVING_LIMIT:
+        logger.warning("Daily driving limit exceeded: proposed=%.2f limit=%.2f", proposed_driving, DAILY_DRIVING_LIMIT)
         raise ValidationError({
             'error': 'Daily driving limit exceeded',
             'success': False,
@@ -139,6 +163,7 @@ def hos_checker(
         on_duty_duration: timedelta = activity_end_datetime - todays_start_datetime
 
         if on_duty_duration > timedelta(hours=DAILY_ON_DUTY_LIMIT) and (duty_status == 'driving' or duty_status == 'on_duty') :
+            logger.warning("On-duty window exceeded: duration=%.2f limit=%.2f", on_duty_duration.total_seconds()/3600, DAILY_ON_DUTY_LIMIT)
             raise ValidationError({
                 'error': 'On-duty window exceeded',
                 'success': False,
@@ -149,6 +174,7 @@ def hos_checker(
     # Check weekly 70-hour limit (using current_cycle_hours + day's on-duty total)
     proposed_cycle_total: float = logsheet.current_cycle_hours + proposed_total_on_duty_day
     if proposed_cycle_total > CYCLE_LIMIT:
+        logger.warning("Cycle limit exceeded: proposed=%.2f limit=%.2f", proposed_cycle_total, CYCLE_LIMIT)
         raise ValidationError({
             'error': 'Cycle limit exceeded',
             'success': False,
