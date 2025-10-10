@@ -44,7 +44,7 @@ export function PanelItem({ item, onClick, onDelete, isSelected = false }) {
               <span className="text-xs text-foreground/40">ID: {item.id}</span>
             )}
           </div>
-          {onDelete && (
+          {/* {onDelete && (
             <Button
               isIconOnly
               size="sm"
@@ -56,7 +56,7 @@ export function PanelItem({ item, onClick, onDelete, isSelected = false }) {
             >
               <FontAwesomeIcon icon={faTrash} className="text-sm" />
             </Button>
-          )}
+          )} */}
         </div>
       </CardBody>
     </Card>
