@@ -44,8 +44,8 @@ def geocode_address(address: str) -> Dict[str, float]:
             "success": False,
             "msg": f"No coordinates found for address: {address}"
         })
-    logger.debug()
     try:
+        print(f"Geocoding data for address={address}: {data}")
         result: Dict[str, float] = {'longitude': data[0]['lon'], "latitude": data[0]['lat']}
         elapsed = _time.perf_counter() - start_perf
         logger.debug("Geocoded address=%s -> %s (%.4fs)", address, result, elapsed)
