@@ -7,6 +7,7 @@ import time as _time
 from django.db import transaction
 from rest_framework import serializers  # type: ignore
 from rest_framework.serializers import ValidationError  # type: ignore
+from dotenv import load_dotenv
 
 from .models import LogEntry, LogSheet
 from .utils import geocode_address, get_route, hos_checker
@@ -17,6 +18,10 @@ from .constants import (
     DAILY_ON_DUTY_LIMIT,
 )
 
+load_dotenv()
+
+API_KEY1: str | None = os.environ.get('API_KEY1')
+API_KEY2: str | None = os.environ.get('API_KEY2')
 
 logger = logging.getLogger(__name__)
 
@@ -99,11 +104,11 @@ class LogSheetSerializer(serializers.ModelSerializer):
         pickup_location: str = validated_data["pickup_location"]
 
         # Convert addresses to coordinates for route planning
-        current_coords = geocode_address(current_address)
+        current_coords = geocode_address(current_address, API_KEY1)
         logger.debug("Geocode current_location=%s -> %s", current_address, current_coords)
-        end_coords = geocode_address(dropoff_address)
+        end_coords = geocode_address(dropoff_address, API_KEY2)
         logger.debug("Geocode dropoff_location=%s -> %s", dropoff_address, end_coords)
-        pickup_coords = geocode_address(pickup_location)
+        pickup_coords = geocode_address(pickup_location, API_KEY1)
         logger.debug("Geocode pickup_location=%s -> %s", pickup_location, pickup_coords)
 
         # Calculate multi-leg route distances

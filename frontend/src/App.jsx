@@ -51,7 +51,7 @@ function App() {
 
       if (error.response) {
         errorMessage = ` ${
-          error.response.data?.error[0] + " - " + error.response.data?.msg[0] ||
+          error.response.data?.error + " - " + error.response.data?.msg ||
           "Unknown error"
         }`;
       } else if (error.request) {
