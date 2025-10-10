@@ -106,7 +106,15 @@ pip install django djangorestframework python-dotenv requests
 ```env
 API_KEY=your_locationiq_api_key
 DJANGO_SECRET_KEY=your_secret
-DEBUG=True
+DEBUG=True for development
+DB_NAME = 'database name'
+DB_USER = 'db username'
+DB_PASSWORD = '3JgYTnRzrlwPOAdTF2ppXc7k2tZdBdWW'
+DB_HOST = 'database host if your are using external db services'
+DB_PORT = '5432'
+SECRET = "your-django-secret-key"
+HOST = "allowed host"
+FRONTEND_URL = "http://localhost:5173"
 ```
 
 4. Apply migrations and run the development server:
