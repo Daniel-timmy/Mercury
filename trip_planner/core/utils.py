@@ -16,7 +16,7 @@ API_KEY: str | None = os.environ.get('API_KEY')
 
 logger = logging.getLogger(__name__)
 
-def geocode_address(address: str, api_key: str) -> Dict[str, float]:
+def geocode_address(address: str, api_key: str | None) -> Dict[str, float]:
     """
     Geocode an address to retrieve its longitude and latitude.
 
@@ -30,6 +30,13 @@ def geocode_address(address: str, api_key: str) -> Dict[str, float]:
     Raises:
         ValidationError: If no coordinates are found for the address.
     """
+    if api_key is None:
+        raise ValidationError({
+            "error": "Failed",
+            "success": False,
+            "msg": "Failed to retrieve location data"
+        })
+
     start_perf = _time.perf_counter()
     logger.debug("geocode_address called: address=%s", address)
     url: str = f"https://us1.locationiq.com/v1/search?key={api_key}&q={address}&format=json&"
@@ -45,7 +52,7 @@ def geocode_address(address: str, api_key: str) -> Dict[str, float]:
             "success": False,
             "msg": f"No coordinates found for address: {address}"
         })
-    if isinstance(data, dict) and data.get("error"):
+    if isinstance(data, dict) and data["error"]:
         logger.error("Geocoding API error for address=%s: %s", address, data.get("error"))
         raise ValidationError({
             "error": "Geocoding failed",
@@ -53,7 +60,6 @@ def geocode_address(address: str, api_key: str) -> Dict[str, float]:
             "msg": f"Geocoding API error for address: {address} - {data.get('error')}"
         })
     try:
-        print(f"Geocoding data for address={address}: {data}")
         result: Dict[str, float] = {'longitude': data[0]['lon'], "latitude": data[0]['lat']}
         elapsed = _time.perf_counter() - start_perf
         logger.debug("Geocoded address=%s -> %s (%.4fs)", address, result, elapsed)

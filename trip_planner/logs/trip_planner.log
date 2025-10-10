@@ -52,3 +52,76 @@
 2025-10-10 20:20:43,475 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\utils.py changed, reloading.
 2025-10-10 20:20:45,296 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
 2025-10-10 20:23:37,834 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\serializers.py changed, reloading.
+2025-10-10 20:23:39,620 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
+2025-10-10 20:28:55,260 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\serializers.py changed, reloading.
+2025-10-10 20:28:57,698 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
+2025-10-10 20:30:04,056 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\serializers.py changed, reloading.
+2025-10-10 20:30:05,533 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
+2025-10-10 20:32:39,496 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\serializers.py changed, reloading.
+2025-10-10 20:32:41,256 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
+2025-10-10 20:38:38,724 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\serializers.py changed, reloading.
+2025-10-10 20:38:40,108 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
+2025-10-10 20:49:24,990 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\serializers.py changed, reloading.
+2025-10-10 20:49:26,694 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
+2025-10-10 20:56:47,034 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\serializers.py changed, reloading.
+2025-10-10 20:56:48,501 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
+2025-10-10 21:01:34,031 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\utils.py changed, reloading.
+2025-10-10 21:01:36,069 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
+2025-10-10 21:01:48,099 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\serializers.py changed, reloading.
+2025-10-10 21:01:49,351 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
+2025-10-10 21:02:04,329 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\serializers.py changed, reloading.
+2025-10-10 21:02:05,684 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
+2025-10-10 21:06:04,144 [INFO] django.server: "OPTIONS /api/logsheets/ HTTP/1.1" 200 0
+2025-10-10 21:06:04,156 [DEBUG] core.serializers: LogSheet.validate called with keys=['shipper', 'commodity', 'driver', 'current_location', 'pickup_location', 'dropoff_location', 'vehicle_no', 'trailer_no', 'current_cycle_hours']
+2025-10-10 21:06:04,157 [DEBUG] core.utils: geocode_address called: address=1179 Main St W, Baudette, MN 56623, United States
+2025-10-10 21:06:11,097 [DEBUG] core.utils: Geocoded address=1179 Main St W, Baudette, MN 56623, United States -> {'longitude': '-94.62372018710842', 'latitude': '48.71320335'} (6.9410s)
+2025-10-10 21:06:11,100 [DEBUG] core.utils: geocode_address called: address=1801 US-2, Devils Lake, ND 58301, United States
+2025-10-10 21:06:16,117 [DEBUG] core.utils: Geocoded address=1801 US-2, Devils Lake, ND 58301, United States -> {'longitude': '-98.864488', 'latitude': '48.102154'} (5.0166s)
+2025-10-10 21:06:16,121 [DEBUG] core.utils: geocode_address called: address=900 N Shoreline Blvd, Corpus Christi, TX 78401, United States
+2025-10-10 21:06:23,803 [DEBUG] core.utils: Geocoded address=900 N Shoreline Blvd, Corpus Christi, TX 78401, United States -> {'longitude': '-97.39221351166208', 'latitude': '27.800358350000003'} (7.6823s)
+2025-10-10 21:06:23,805 [DEBUG] core.serializers: LogSheet.create called: driver=Tim vehicle_no=QWE pickup=1801 US-2, Devils Lake, ND 58301, United States dropoff=900 N Shoreline Blvd, Corpus Christi, TX 78401, United States
+2025-10-10 21:06:23,884 [ERROR] django.request: Internal Server Error: /api/logsheets/
+Traceback (most recent call last):
+  File "C:\Users\user\OneDrive\Desktop\Spotter\.venv\Lib\site-packages\django\core\handlers\exception.py", line 55, in inner
+    response = get_response(request)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\OneDrive\Desktop\Spotter\.venv\Lib\site-packages\django\core\handlers\base.py", line 197, in _get_response
+    response = wrapped_callback(request, *callback_args, **callback_kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\OneDrive\Desktop\Spotter\.venv\Lib\site-packages\django\views\decorators\csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\OneDrive\Desktop\Spotter\.venv\Lib\site-packages\rest_framework\viewsets.py", line 125, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\OneDrive\Desktop\Spotter\.venv\Lib\site-packages\rest_framework\views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\OneDrive\Desktop\Spotter\.venv\Lib\site-packages\rest_framework\views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "C:\Users\user\OneDrive\Desktop\Spotter\.venv\Lib\site-packages\rest_framework\views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "C:\Users\user\OneDrive\Desktop\Spotter\.venv\Lib\site-packages\rest_framework\views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\OneDrive\Desktop\Spotter\.venv\Lib\site-packages\rest_framework\mixins.py", line 19, in create
+    self.perform_create(serializer)
+  File "C:\Users\user\OneDrive\Desktop\Spotter\.venv\Lib\site-packages\rest_framework\mixins.py", line 24, in perform_create
+    serializer.save()
+  File "C:\Users\user\OneDrive\Desktop\Spotter\.venv\Lib\site-packages\rest_framework\serializers.py", line 210, in save
+    self.instance = self.create(validated_data)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\serializers.py", line 110, in create
+    if current_address != pickup_location
+       ^^^^^^^^^^^^^^^
+NameError: name 'current_address' is not defined. Did you mean: 'current_coords'?
+2025-10-10 21:06:23,896 [ERROR] django.server: "POST /api/logsheets/ HTTP/1.1" 500 124899
+2025-10-10 21:10:08,871 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\serializers.py changed, reloading.
+2025-10-10 21:10:10,240 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
+2025-10-10 21:10:27,291 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\serializers.py changed, reloading.
+2025-10-10 21:10:28,468 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
+2025-10-10 21:15:03,427 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\utils.py changed, reloading.
+2025-10-10 21:15:07,268 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
+2025-10-10 21:16:22,334 [INFO] django.utils.autoreload: C:\Users\user\OneDrive\Desktop\Spotter\trip_planner\core\serializers.py changed, reloading.
+2025-10-10 21:16:24,218 [INFO] django.utils.autoreload: Watching for file changes with StatReloader
+2025-10-10 21:18:51,967 [INFO] django.utils.autoreload: Watching for file changes with StatReloader

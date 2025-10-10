@@ -99,18 +99,15 @@ class LogSheetSerializer(serializers.ModelSerializer):
             validated_data.get("dropoff_location"),
         )
 
+
         # Extract and validate location data
         current_address: str = validated_data["current_location"]
         dropoff_address: str = validated_data["dropoff_location"]
         pickup_location: str = validated_data["pickup_location"]
 
-        # Convert addresses to coordinates for route planning
-        current_coords = geocode_address(current_address, API_KEY1)
-        logger.debug("Geocode current_location=%s -> %s", current_address, current_coords)
-        end_coords = geocode_address(dropoff_address, API_KEY2)
-        logger.debug("Geocode dropoff_location=%s -> %s", dropoff_address, end_coords)
-        pickup_coords = geocode_address(pickup_location, API_KEY1)
-        logger.debug("Geocode pickup_location=%s -> %s", pickup_location, pickup_coords)
+        current_coords = validated_data['_current_coords']
+        end_coords = validated_data['_pickup_coords']
+        pickup_coords = validated_data['_end_coords']
 
         # Calculate multi-leg route distances
         leg1 = (
@@ -217,18 +214,19 @@ class LogSheetSerializer(serializers.ModelSerializer):
                 "msg": "vehicle_no is required.",
             })
 
-        # # verify addresses can be geocoded
-        # try:
-        #     # improve by using another validation method that doesn't return coords
-        #     _ = geocode_address(attrs["current_location"])
-        #     _ = geocode_address(attrs["pickup_location"])
-        #     _ = geocode_address(attrs["dropoff_location"])
-        # except Exception as e:
-        #     raise ValidationError({
-        #         "error": "Address validation failed",
-        #         "success": False,
-        #         "msg": str(e),
-        #     })
+        # verify addresses can be geocoded
+        try:
+            attrs['_current_coords'] = geocode_address(attrs["current_location"], API_KEY1)
+            attrs['_pickup_coords'] = geocode_address(attrs["pickup_location"], API_KEY2)
+            attrs['_end_coords'] = geocode_address(attrs["dropoff_location"], API_KEY1)
+        except ValidationError as e:
+            raise
+        except Exception as e:
+            raise ValidationError({
+                "error": "Address validation failed",
+                "success": False,
+                "msg": str(e),
+            })
 
         return attrs
 
@@ -447,7 +445,7 @@ class LogEntrySerializer(serializers.ModelSerializer):
             })
 
         try:
-            location_coords = geocode_address(attrs.get("location", ""))
+            location_coords = geocode_address(attrs.get("location", ""), API_KEY1)
         except Exception as e:
             logger.debug("Location validation failed for %s: %s", attrs.get("location", ""), e)
             raise ValidationError({
