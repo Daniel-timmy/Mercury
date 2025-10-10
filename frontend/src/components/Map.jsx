@@ -114,6 +114,7 @@ const MapCard = ({ logsheet, entries }) => {
 
     // Configure ArcGIS with API key
     esriConfig.apiKey = API_KEY;
+    console.log("ArcGIS API Key set.", API_KEY);
 
     if (mapDiv.current) {
       // Create the base map with dark gray basemap
