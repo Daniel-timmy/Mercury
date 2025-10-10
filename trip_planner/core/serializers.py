@@ -106,8 +106,8 @@ class LogSheetSerializer(serializers.ModelSerializer):
         pickup_location: str = validated_data["pickup_location"]
 
         current_coords = validated_data['_current_coords']
-        end_coords = validated_data['_pickup_coords']
-        pickup_coords = validated_data['_end_coords']
+        end_coords = validated_data['_end_coords']
+        pickup_coords = validated_data['_pickup_coords'] 
 
         # Calculate multi-leg route distances
         leg1 = (
