@@ -49,7 +49,9 @@ def geocode_address(address: str) -> Dict[str, float]:
         result: Dict[str, float] = {'longitude': data[0]['lon'], "latitude": data[0]['lat']}
         elapsed = _time.perf_counter() - start_perf
         logger.debug("Geocoded address=%s -> %s (%.4fs)", address, result, elapsed)
+
     except KeyError as e:
+        logger.error(f"Geocoding parsing error for  address = {address}, error = {str(e)}, data = {data}") 
         raise ValidationError({
             "error": "Geocoding failed",
             "success": False,
