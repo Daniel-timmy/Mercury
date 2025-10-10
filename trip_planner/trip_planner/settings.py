@@ -30,7 +30,7 @@ HOST: str | None = os.environ.get('HOST')
 SECRET_KEY = SECRET
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 
 CORS_ALLOW_ALL_ORIGINS = False
