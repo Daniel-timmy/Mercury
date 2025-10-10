@@ -286,7 +286,7 @@ class LogEntrySerializer(serializers.ModelSerializer):
                 # Validate logsheet existence
                 logsheet = validated_data["_logsheet_obj"]
                 # Get location coordinates and calculate duration
-                location_coords = geocode_address(validated_data["location"])
+                location_coords = validated_data["_location_coords"]
                 logger.debug("Geocode log entry location=%s -> %s", validated_data["location"], location_coords)
 
                 # Run HOS checker before creation
