@@ -1,3 +1,6 @@
 /.idea
 /.mypy_cache
 /.venv
+/trip_planner/.env
+/trip_planner/db.sqlite3
+test.py

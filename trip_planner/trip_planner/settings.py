@@ -11,28 +11,35 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+from dotenv import load_dotenv
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv()
+
+FRONTEND_URL: str | None = os.environ.get('FRONTEND_URL')
+SECRET: str | None = os.environ.get('SECRET')
+HOST: str | None = os.environ.get('HOST')
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-9h-k++5ww@8up3$%p#8oaw%k11g4zc!m77j=2-@ru^6%z-=_5t'
+SECRET_KEY = SECRET
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 
-# CORS_ALLOWED_ORIGINS = [
-#     'http://localhost:5174',
-# ]
+CORS_ALLOWED_ORIGINS = [
+    FRONTEND_URL,
+]
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = [HOST, '127.0.0.1']
 
 
 # Application definition
