@@ -216,18 +216,18 @@ class LogSheetSerializer(serializers.ModelSerializer):
                 "msg": "vehicle_no is required.",
             })
 
-        # verify addresses can be geocoded
-        try:
-            # improve by using another validation method that doesn't return coords
-            _ = geocode_address(attrs["current_location"])
-            _ = geocode_address(attrs["pickup_location"])
-            _ = geocode_address(attrs["dropoff_location"])
-        except Exception as e:
-            raise ValidationError({
-                "error": "Address validation failed",
-                "success": False,
-                "msg": str(e),
-            })
+        # # verify addresses can be geocoded
+        # try:
+        #     # improve by using another validation method that doesn't return coords
+        #     _ = geocode_address(attrs["current_location"])
+        #     _ = geocode_address(attrs["pickup_location"])
+        #     _ = geocode_address(attrs["dropoff_location"])
+        # except Exception as e:
+        #     raise ValidationError({
+        #         "error": "Address validation failed",
+        #         "success": False,
+        #         "msg": str(e),
+        #     })
 
         return attrs
 
