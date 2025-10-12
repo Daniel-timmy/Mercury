@@ -66,7 +66,8 @@ export function LogsheetCard({ logsheet, entries, onNewEntry }) {
     return (
       <div className="flex items-center justify-center h-64">
         <p className="text-sm text-foreground/60">
-          No logsheet data available.
+          No logsheet data available. (Wait for a minute while the backend
+          server spins up)
         </p>
       </div>
     );
