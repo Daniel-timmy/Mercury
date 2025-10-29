@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 from datetime import datetime, timedelta, time
 import re
 import logging
@@ -10,7 +10,9 @@ from rest_framework import serializers  # type: ignore
 from rest_framework.serializers import ValidationError  # type: ignore
 from dotenv import load_dotenv
 
-from .models import LogEntry, LogSheet
+from trip_planner.user.models import User
+
+from .models import LogEntry, LogSheet, Trip
 from .utils import geocode_address, get_route, hos_checker
 from .constants import (
     PICKUP_DROPOFF_HOURS,
@@ -26,19 +28,243 @@ API_KEY2: str | None = os.environ.get('API_KEY2')
 
 logger = logging.getLogger(__name__)
 
+class TripSerializer(serializers.ModelSerializer):
+    """
+    Serializer for creating and managing trips.
+    Handles assignment of manager and driver, and trip details.
+    """
+    manager = serializers.PrimaryKeyRelatedField(queryset=Trip._meta.get_field('manager').related_model.objects.filter(role='manager'))
+    driver = serializers.PrimaryKeyRelatedField(queryset=Trip._meta.get_field('driver').related_model.objects.filter(role='driver'), required=False, allow_null=True)
+
+    class Meta:
+        model = Trip
+        fields = [
+            "id",
+            "manager",
+            "driver",
+            "start_location",
+            "pickup_location",
+            "dropoff_location",
+            "start_coords",
+            "pickup_coords",
+            "end_coords",
+            "stops",
+            "total_mileage",
+            "start_date",
+            "duration_days",
+            "status",
+            "shipper",
+            "commodity"
+        ]
+        read_only_fields = ["id", "stops", "start_coords", "pickup_coords", "end_coords", "total_mileage"]
+
+    def _calculate_stops(self, data: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], float]:
+        cur = data["_start_coords"]
+        pic = data["_pickup_coords"]
+        end = data["_end_coords"]
+
+        # leg 1: start → pickup (skip if same address)
+        leg1 = (
+            get_route((cur["latitude"], cur["longitude"]),
+                      (pic["latitude"], pic["longitude"]))
+            if data["start_location"].strip() != data["pickup_location"].strip()
+            else {"distance": 0, "duration": 0}
+        )
+        leg2 = get_route((pic["latitude"], pic["longitude"]),
+                         (end["latitude"], end["longitude"]))
+
+        total_distance = leg1["distance"] + leg2["distance"]
+        logger.info("Total distance %.2f miles (leg1=%.2f, leg2=%.2f)",
+                    total_distance, leg1["distance"], leg2["distance"])
+
+        # Fueling stops
+        fueling: List[Dict[str, Any]] = []
+        if total_distance > FUELING_INTERVAL_MILES:
+            stops_needed = int(total_distance // FUELING_INTERVAL_MILES)
+            for i in range(stops_needed):
+                fueling.append({
+                    "type": "fueling",
+                    "location": data["pickup_location"] if i == 0 else data["dropoff_location"],
+                    "distance": (i + 1) * FUELING_INTERVAL_MILES,
+                })
+
+        stops: List[Dict[str, Any]] = [
+            {"type": "pickup",  "location": data["pickup_location"],
+             "duration_hours": PICKUP_DROPOFF_HOURS},
+            *fueling,
+            {"type": "dropoff", "location": data["dropoff_location"],
+             "duration_hours": PICKUP_DROPOFF_HOURS},
+        ]
+        return stops, total_distance
+
+    def create(self, validated_data: Dict[str, Any]) -> Trip:
+        """
+        Creates a new Trip instance.
+
+        Args:
+            validated_data: Dictionary containing trip creation data
+
+        Returns:
+            Trip: Created trip instance
+
+        Raises:
+            ValidationError: If creation fails
+        """
+        # Extract and validate location data
+        start_address: str = validated_data["start_location"]
+        dropoff_address: str = validated_data["dropoff_location"]
+        pickup_location: str = validated_data["pickup_location"]
+
+        try:
+            validated_data['_start_coords'] = geocode_address(validated_data["start_location"], API_KEY1)
+            validated_data['_pickup_coords'] = geocode_address(validated_data["pickup_location"], API_KEY2)
+            validated_data['_end_coords'] = geocode_address(validated_data["dropoff_location"], API_KEY1)
+        except ValidationError as e:
+            raise
+        except Exception as e:
+            raise ValidationError({
+                "error": "Address validation failed",
+                "success": False,
+                "msg": str(e),
+            })
+
+
+        start_coords = validated_data['_start_coords']
+        end_coords = validated_data['_end_coords']
+        pickup_coords = validated_data['_pickup_coords'] 
+
+        # Calculate multi-leg route distances
+        stops, total_distance = self._calculate_stops(validated_data)
+
+        try:
+            with transaction.atomic():
+                trip = Trip.objects.create(
+                     manager=validated_data["manager"],
+                     driver=validated_data.get("driver", None),
+                     start_location=start_address,
+                     pickup_location=pickup_location,
+                     dropoff_location=dropoff_address,
+                     start_coords=start_coords,
+                     end_coords=end_coords,
+                     pickup_coords=pickup_coords,
+                     stops=stops,
+                     total_mileage=total_distance,
+                     start_date=validated_data["start_date"],
+                     duration_days=validated_data["duration_days"],
+                     status=validated_data.get("status", "pending"),
+                     shipper=validated_data["shipper"],
+                     commodity=validated_data["commodity"],
+                )
+                trip.save()
+                logger.info(
+                    "Created Trip id=%s manager=%s driver=%s destination=%s start_date=%s",
+                    trip.id,
+                    trip.manager,
+                    trip.driver,
+                    trip.dropoff_location,
+                    trip.start_date,
+                )
+                return trip
+        except Exception as e:
+            logger.exception("Error creating Trip (manager=%s driver=%s): %s", validated_data.get("manager"), validated_data.get("driver"), e)
+            raise ValidationError({
+                "error": "Error creating Trip",
+                "success": False,
+                "msg": str(e),
+            })
+    
+    def update(self, instance, validated_data):
+        address_fields = {"start_location", "pickup_location", "dropoff_location"}
+        address_updated = address_fields & validated_data.keys()
+
+        if address_updated and not address_fields.issubset(validated_data):
+            raise ValidationError("All three address fields required to update locations.")
+
+        with transaction.atomic():
+            for field in ["manager", "driver", "start_date", "duration_days", "status", "shipper", "commodity"]:
+                if field in validated_data:
+                    setattr(instance, field, validated_data[field])
+            stops, total_mileage = self._calculate_stops(validated_data)
+            if address_updated:
+                # Geocode + update
+                validated_data['_start_coords'] = geocode_address(validated_data["start_location"], API_KEY1)
+                validated_data['_pickup_coords'] = geocode_address(validated_data["pickup_location"], API_KEY2)
+                validated_data['_end_coords'] = geocode_address(validated_data["dropoff_location"], API_KEY1)
+
+                instance.start_location = validated_data["start_location"]
+                instance.pickup_location = validated_data["pickup_location"]
+                instance.dropoff_location = validated_data["dropoff_location"]
+                instance.start_coords = validated_data["_start_coords"]
+                instance.pickup_coords = validated_data["_pickup_coords"]
+                instance.end_coords = validated_data["_end_coords"]
+                instance.stops = stops
+                instance.total_mileage = total_mileage
+
+            instance.save()
+        return instance
+
+    def validate_manager(self, value):
+        if value:
+            if value.role != 'manager':
+                raise ValidationError("Manager must have role 'manager'.")
+        else:
+            raise ValidationError("Manager is required.")
+        return value
+
+    def validate_driver(self, value):
+        if value:
+            if value.role != 'driver':
+                raise ValidationError("Driver must have role 'driver'.")
+        return value
+
+    def validate_status(self, value):
+        valid_statuses = ['pending', 'in_progress', 'completed']
+        if value not in valid_statuses:
+            raise ValidationError(f"Status must be one of {valid_statuses}.")
+        return value
+    
+    def validate_pickup_location(self, value):
+        if not value or len(value.strip()) == 0:
+            raise ValidationError({
+                "error": "Validation error",
+                "success": False,
+                "msg": f"{value} is required and must be a string.",
+            })
+        return value
+
+    def validate_dropoff_location(self, value):
+        if not value or len(value.strip()) == 0:
+            raise ValidationError({
+                "error": "Validation error",
+                "success": False,
+                "msg": f"{value} is required and must be a string.",
+            })
+        return value
+
+    def validate_start_location(self, value):
+        if not value or len(value.strip()) == 0:
+            raise ValidationError({
+                "error": "Validation error",
+                "success": False,
+                "msg": f"{value} is required and must be a string.",
+            })
+        return value
+
+    
+
 class LogSheetSerializer(serializers.ModelSerializer):
     """
     Serializer for creating and managing driver log sheets.
     Handles route planning, fueling stops, and basic log sheet operations.
     """
+    trip = serializers.PrimaryKeyRelatedField(queryset=Trip.objects.all())
+    driver = serializers.PrimaryKeyRelatedField(queryset=LogSheet._meta.get_field('driver').related_model.objects.filter(role='driver'), required=False, allow_null=True)
 
     class Meta:
         model = LogSheet
         fields = [
             "id",
-            "shipper",
-            "commodity",
-            "total_mileage",
+            "trip",
             "date",
             "berth",
             "on_duty",
@@ -46,21 +272,20 @@ class LogSheetSerializer(serializers.ModelSerializer):
             "driving",
             "on_duty_start_time",
             "driver",
+
             "current_location",
-            "pickup_location",
-            "dropoff_location",
-            "vehicle_no",
+      
             "total_mileage",
+
+            "vehicle_no",
             "trailer_no",
-            "shipper",
-            "commodity",
+     
             "current_cycle_hours",
-            "stops",
-            "start_coords",
-            "end_coords",
-            "pickup_coords",
             "created_at",
 
+            "start_coords",
+     
+    
              ]
         read_only_fields = [
             "id",
@@ -70,10 +295,7 @@ class LogSheetSerializer(serializers.ModelSerializer):
             "off_duty",
             "driving",
             "on_duty_start_time",
-            "stops",
             "start_coords",
-            "end_coords",
-            "pickup_coords",
         ]
 
     def create(self, validated_data: Dict[str, Any]) -> LogSheet:
@@ -90,59 +312,16 @@ class LogSheetSerializer(serializers.ModelSerializer):
             ValidationError: If logsheet already exists or creation fails
         """
         start_perf = _time.perf_counter()
-        todays_date = datetime.now().strftime("%Y-%m-%d")
         logger.debug(
-            "LogSheet.create called: driver=%s vehicle_no=%s pickup=%s dropoff=%s",
+            "LogSheet.create called: driver=%s vehicle_no=%s start=%s ",
             validated_data.get("driver"),
             validated_data.get("vehicle_no"),
-            validated_data.get("pickup_location"),
-            validated_data.get("dropoff_location"),
+            validated_data.get("start_location"),
         )
 
 
         # Extract and validate location data
-        current_address: str = validated_data["current_location"]
-        dropoff_address: str = validated_data["dropoff_location"]
-        pickup_location: str = validated_data["pickup_location"]
-
-        current_coords = validated_data['_current_coords']
-        end_coords = validated_data['_end_coords']
-        pickup_coords = validated_data['_pickup_coords'] 
-
-        # Calculate multi-leg route distances
-        leg1 = (
-            get_route((current_coords['latitude'], current_coords['longitude']),
-                        (pickup_coords['latitude'], pickup_coords['longitude']))
-            if current_address != pickup_location
-            else {"distance": 0, "duration": 0}
-        )
-        logger.debug("Route leg1 result: %s", leg1)
-        leg2 = get_route((pickup_coords['latitude'], pickup_coords['longitude']),
-                          (end_coords['latitude'], end_coords['longitude']))
-        logger.debug("Route leg2 result: %s", leg2)
-        total_distance = leg1["distance"] + leg2["distance"]
-        logger.info("Total route distance computed: %.2f (leg1=%.2f, leg2=%.2f)", float(total_distance), float(leg1["distance"]), float(leg2["distance"]))
-
-        # Calculate fueling stops based on total distance
-        fueling_stops: List[Dict[str, Any]] = []
-        if total_distance > FUELING_INTERVAL_MILES:
-            num_fueling_stops = int(total_distance // FUELING_INTERVAL_MILES)
-            logger.debug("Total distance %.2f > fueling interval %s -> num_fueling_stops=%d", float(total_distance), FUELING_INTERVAL_MILES, num_fueling_stops)
-            for i in range(num_fueling_stops):
-                stop_location = pickup_location if i == 0 else dropoff_address
-                fueling_stops.append({
-                    "type": "fueling",
-                    "location": stop_location,
-                    "distance": (i + 1) * FUELING_INTERVAL_MILES
-                })
-
-        logger.debug("Stops assembled: pickup + %d fueling + dropoff", len(fueling_stops))
-        # Combine all stops including pickup, fueling, and dropoff
-        stops: List[Any] = [
-            {"type": "pickup", "location": pickup_location, "duration_hours": PICKUP_DROPOFF_HOURS},
-            *fueling_stops,
-            {"type": "dropoff", "location": dropoff_address, "duration_hours": PICKUP_DROPOFF_HOURS},
-        ]
+        current_address: str = validated_data["start_location"]
 
         try:
             tx_start = _time.perf_counter()
@@ -150,28 +329,23 @@ class LogSheetSerializer(serializers.ModelSerializer):
                 # Create logsheet with all route and stop information
                 logsheet = LogSheet.objects.create(
                    driver=validated_data.get("driver", "Driver"),
-                   current_location=current_address,
-                   pickup_location=pickup_location,
-                   dropoff_location=dropoff_address,
+
                    vehicle_no=validated_data["vehicle_no"],
-                   start_coords=current_coords,
-                   end_coords=end_coords,
                    trailer_no=validated_data.get("trailer_no", ""),
-                   pickup_coords=pickup_coords,
-                   total_mileage=total_distance,
-                   shipper=validated_data["shipper"],
-                   commodity=validated_data["commodity"],
+
+                   start_location=current_address,
+                   start_coords=geocode_address(current_address, API_KEY1),
+                   
                    current_cycle_hours=validated_data["current_cycle_hours"],
-                   stops=stops,
+                   trip=validated_data["trip"],
                 )
                 logsheet.save()
                 tx_elapsed = _time.perf_counter() - tx_start
                 total_elapsed = _time.perf_counter() - start_perf
                 logger.info(
-                    "Created LogSheet id=%s driver=%s total_mileage=%.2f tx_time=%.4fs total_time=%.4fs",
+                    "Created LogSheet id=%s driver=%s tx_time=%.4fs total_time=%.4fs",
                     logsheet.id,
                     logsheet.driver,
-                    float(total_distance),
                     tx_elapsed,
                     total_elapsed,
                 )
@@ -183,52 +357,23 @@ class LogSheetSerializer(serializers.ModelSerializer):
                 "success": False,
                 "msg": str(e),
             })
+        
+    def validate_trip(self, value: Trip) -> Trip:
+        if value:
+            return value
+        else:
+            raise ValidationError("Trip is required.")
+    
+    def validate_start_location(self, value: str) -> str:
+        if not value or len(value.strip()) == 0:
+            raise ValidationError("Start location is required.")
+        return value
 
-    def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
-        logger.debug("LogSheet.validate called with keys=%s", list(attrs.keys()))
-        """Validate basic logsheet fields before creation.
-
-        Checks presence of address fields, ensures pickup != dropoff,
-        requires vehicle_no, and verifies addresses can be geocoded.
-        """
-        required_addresses = ("current_location", "pickup_location", "dropoff_location")
-        for f in required_addresses:
-            if not attrs.get(f) or not isinstance(attrs.get(f), str):
-                raise ValidationError({
-                    "error": "Validation error",
-                    "success": False,
-                    "msg": f"{f} is required and must be a string.",
-                })
-
-        if attrs["pickup_location"].strip() == attrs["dropoff_location"].strip():
-            raise ValidationError({
-                "error": "Validation error",
-                "success": False,
-                "msg": "Pickup and dropoff locations must be different.",
-            })
-
-        if not attrs.get("vehicle_no"):
-            raise ValidationError({
-                "error": "Validation error",
-                "success": False,
-                "msg": "vehicle_no is required.",
-            })
-
-        # verify addresses can be geocoded
-        try:
-            attrs['_current_coords'] = geocode_address(attrs["current_location"], API_KEY1)
-            attrs['_pickup_coords'] = geocode_address(attrs["pickup_location"], API_KEY2)
-            attrs['_end_coords'] = geocode_address(attrs["dropoff_location"], API_KEY1)
-        except ValidationError as e:
-            raise
-        except Exception as e:
-            raise ValidationError({
-                "error": "Address validation failed",
-                "success": False,
-                "msg": str(e),
-            })
-
-        return attrs
+    def validate_driver(self, value: User) -> User:
+        if value:
+            if value.role != 'driver':
+                raise ValidationError("Driver must have role 'driver'.")
+        return value
 
 
 class LogEntrySerializer(serializers.ModelSerializer):
@@ -275,10 +420,7 @@ class LogEntrySerializer(serializers.ModelSerializer):
         """
         start_perf = _time.perf_counter()
         logger.debug("LogEntry.create called: log_id=%s duty_status=%s activity=%s", validated_data.get("log_id"), validated_data.get("duty_status"), validated_data.get("activity"))
-         # Extract and validate time-related data
-        sheet_id = validated_data.pop("log_id", None)
-        startTime = validated_data.pop("startTime", None)
-        todays_date = datetime.now().strftime("%Y-%m-%d")
+
 
         try:
             with transaction.atomic():
@@ -379,6 +521,8 @@ class LogEntrySerializer(serializers.ModelSerializer):
                 "success": False,
                 "msg": str(e)
             })
+    
+    
 
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
         logger.debug("LogEntry.validate called: log_id=%s span=%s startTime=%s duty_status=%s", attrs.get("log_id"), attrs.get("span"), attrs.get("startTime"), attrs.get("duty_status"))

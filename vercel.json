@@ -1,0 +1,8 @@
+{
+  "builds": [
+    { "src": "trip_planner/wsgi.py", "use": "@vercel/python" }
+  ],
+  "routes": [
+    { "src": "/(.*)", "dest": "trip_planner/wsgi.py" }
+  ]
+}

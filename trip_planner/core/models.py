@@ -2,19 +2,71 @@
 from datetime import time
 import uuid
 
+from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+
+
+class Trip(models.Model):
+    """Model for tracking trips assigned to drivers and managed by managers."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    manager = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='managed_trips'
+    )
+    driver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='driver_trips'
+    )
+    start_location = models.CharField(max_length=200)
+    pickup_location = models.CharField(max_length=200)
+    dropoff_location = models.CharField(max_length=200)
+    start_coords = models.JSONField(default=dict) # type: ignore
+    pickup_coords = models.JSONField(default=dict) # type: ignore
+    end_coords = models.JSONField(default=dict) # type: ignore
+    stops = models.JSONField(default=list)
+    total_mileage = models.IntegerField(default=0)
+    start_date = models.DateField()
+    status = models.CharField(max_length=50, choices=[
+        ('pending', 'Pending'),
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+    ], default='pending')
+    shipper = models.CharField(max_length=255, null=False, blank=False)
+    commodity = models.CharField(max_length=255, null=False, blank=False)
+    duration_days = models.PositiveIntegerField(null=False, default=1)
+
+    def __str__(self) -> str:
+        """Return string representation of Trip."""
+        return f"Trip to {self.dropoff_location} created by {self.manager.name}"
 
 
 class LogSheet(models.Model):
     """Model for tracking driver's daily log sheets and route information."""
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    trip = models.ForeignKey(
+        Trip,
+        on_delete=models.CASCADE,
+        related_name='logs',
+        null=True,
+        blank=True
+    )
 
     # Basic information
-    driver = models.CharField(max_length=100)
-    shipper = models.CharField(max_length=255)
-    commodity = models.CharField(max_length=255)
+    driver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='driver_logsheets'
+    )
+
     remarks = models.CharField(default="No Remarks", max_length=10000)
 
     # Vehicle information
@@ -38,13 +90,10 @@ class LogSheet(models.Model):
     )
 
     # Location tracking
-    current_location = models.CharField(max_length=200)
-    pickup_location = models.CharField(max_length=200)
-    dropoff_location = models.CharField(max_length=200)
+    start_location = models.CharField(max_length=200)
+
     start_coords = models.JSONField(default=dict) # type: ignore
-    pickup_coords = models.JSONField(default=dict) # type: ignore
-    end_coords = models.JSONField(default=dict) # type: ignore
-    stops = models.JSONField(default=list) # type: ignore
+
 
     def __str__(self) -> str:
         """Return string representation of LogSheet."""

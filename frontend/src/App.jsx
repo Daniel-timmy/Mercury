@@ -152,9 +152,9 @@ function App() {
               console.log("Logsheet updated with data:", updatedData)
             }
           />
-          <MapCard logsheet={mainSheet} entries={entries} />
         </main>
       </div>
+      <MapCard logsheet={mainSheet} entries={entries} />
     </HeroUIProvider>
   );
 }
