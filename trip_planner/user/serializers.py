@@ -94,6 +94,7 @@ class UserSerializer(serializers.ModelSerializer):
         return attrs
 
 
+
 # User = get_user_model()
 
 # class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):

@@ -8,14 +8,19 @@ const CACHE_DURATION = 3 * 60 * 1000; // 3 minutes in milliseconds
 /**
  * Custom hook to fetch panel data from API with caching
  * @param {string} apiEndpoint - The API endpoint to fetch data from
+ * @param {number} page - Page number for pagination (optional)
  * @returns {Object} - { data, loading, error, refetch }
  */
-export function usePanelData(apiEndpoint) {
+export function usePanelData(apiEndpoint, page = 1) {
   const [data, setData] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const fetchData = async (forceRefresh = false) => {
+    if (!apiEndpoint) {
+      setLoading(false);
+      return;
+    }
     // Check if cached data exists and is still valid
     const cachedEntry = cache.get(apiEndpoint);
     const now = Date.now();
@@ -63,8 +68,12 @@ export function usePanelData(apiEndpoint) {
   useEffect(() => {
     if (apiEndpoint) {
       fetchData();
+    } else {
+      setLoading(false);
+      setData([]);
+      setError(null);
     }
-  }, [apiEndpoint]);
+  }, [apiEndpoint, page]);
 
   return { data, loading, error, refetch: () => fetchData(true) };
 }

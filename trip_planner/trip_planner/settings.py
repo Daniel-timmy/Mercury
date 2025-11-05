@@ -40,7 +40,7 @@ CORS_ALLOWED_ORIGINS = [
     FRONTEND_URL,
 ]
 
-ALLOWED_HOSTS = [HOST, '127.0.0.1']
+ALLOWED_HOSTS = [HOST, '127.0.0.1', 'localhost']
 
 
 # Application definition
@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
+    'channels',
     'django_filters',
 ]
 
@@ -87,6 +88,13 @@ SIMPLE_JWT = {
     'SLIDING_TOKEN_REFRESH_LIFETIME_LATE_USER': timedelta(days=1),
     'SLIDING_TOKEN_LIFETIME_LATE_USER': timedelta(days=30),
 }
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {"hosts": [("127.0.0.1", 6379)]},
+    },
+}
 # SIMPLE_JWT = {
 #     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=300),
 #     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),
@@ -116,6 +124,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'trip_planner.wsgi.application'
+ASGI_APPLICATION = 'trip_planner.asgi.application'
 
 
 # Database

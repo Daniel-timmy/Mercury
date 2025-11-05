@@ -5,6 +5,8 @@ import uuid
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+# from django.contrib.gis.db import models as gis_models
+
 
 
 class Trip(models.Model):
@@ -23,13 +25,13 @@ class Trip(models.Model):
         blank=True,
         related_name='driver_trips'
     )
-    start_location = models.CharField(max_length=200)
-    pickup_location = models.CharField(max_length=200)
-    dropoff_location = models.CharField(max_length=200)
-    start_coords = models.JSONField(default=dict) # type: ignore
-    pickup_coords = models.JSONField(default=dict) # type: ignore
-    end_coords = models.JSONField(default=dict) # type: ignore
-    stops = models.JSONField(default=list)
+    start_location = models.CharField(max_length=200, null=False, blank=False)
+    pickup_location = models.CharField(max_length=200, null=False, blank=False)
+    dropoff_location = models.CharField(max_length=200, null=False, blank=False)
+    start_coords = models.JSONField(default=dict, null=False, blank=False) # type: ignore
+    pickup_coords = models.JSONField(default=dict, null=False, blank=False) # type: ignore
+    end_coords = models.JSONField(default=dict, null=False, blank=False) # type: ignore
+    stops = models.JSONField(default=list, null=False, blank=False) # type: ignore
     total_mileage = models.IntegerField(default=0)
     start_date = models.DateField()
     status = models.CharField(max_length=50, choices=[
@@ -40,6 +42,9 @@ class Trip(models.Model):
     shipper = models.CharField(max_length=255, null=False, blank=False)
     commodity = models.CharField(max_length=255, null=False, blank=False)
     duration_days = models.PositiveIntegerField(null=False, default=1)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
 
     def __str__(self) -> str:
         """Return string representation of Trip."""
@@ -54,8 +59,7 @@ class LogSheet(models.Model):
         Trip,
         on_delete=models.CASCADE,
         related_name='logs',
-        null=True,
-        blank=True
+        null=False,
     )
 
     # Basic information
@@ -63,7 +67,7 @@ class LogSheet(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
-        blank=True,
+        blank=False,
         related_name='driver_logsheets'
     )
 
@@ -142,7 +146,23 @@ class LogEntry(models.Model):
         choices=DUTY_STATUS_CHOICES,
     )
     activity = models.TextField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
         """Return string representation of LogEntry."""
         return f"{self.logsheet.driver} - {self.duty_status} - {self.date}"
+    
+class DriverPosition(models.Model):
+    driver = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=False,
+        related_name='driver_positions'
+    )
+    # location = gis_models.PointField(null=False)
+    # trip = models.ForeignKey(Trip, on_delete=models.CASCADE)
+    position_coords = models.JSONField(default=dict, null=False, blank=False) # type: ignore
+    
+    timestamp = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)

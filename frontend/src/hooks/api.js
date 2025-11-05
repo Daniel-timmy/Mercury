@@ -1,4 +1,5 @@
 import axios from "axios";
+import Cookies from "js-cookie";
 
 const apiURL = ""; //Production url
 
@@ -8,11 +9,25 @@ const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ? import.meta.env.VITE_API_URL : apiURL,
 });
 
+api.interceptors.request.use(
+  (config) => {
+    const token = Cookies.get("access");
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
 export const getEntries = async (logsheetId) => {
   try {
-    const response = await api.get(`/logentries/?log_id=${logsheetId}`);
+    const response = await api.get(`/logentries/?logsheet=${logsheetId}`);
     if (response.status === 200) {
-      return response.data;
+      return response.data.results;
     } else {
       console.error(`Failed to fetch entries. Status code: ${response.status}`);
       return [];

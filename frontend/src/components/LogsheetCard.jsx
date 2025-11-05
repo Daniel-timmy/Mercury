@@ -61,7 +61,7 @@ function StatusTable({ driving, berth, onDuty, offDuty }) {
  * @param {Array} props.entries - Array of log entries for the line graph
  * @param {Function} props.onNewEntry - Callback for new entry button
  */
-export function LogsheetCard({ logsheet, entries, onNewEntry }) {
+export function LogsheetCard({ trip, logsheet, entries, onNewEntry }) {
   if (!logsheet) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -76,7 +76,7 @@ export function LogsheetCard({ logsheet, entries, onNewEntry }) {
   const today = new Date().toISOString().split("T")[0];
   const isToday = logsheet.date === today;
 
-  const driverName = logsheet.driver;
+  const driverName = logsheet.driver.name;
 
   return (
     <Card
@@ -106,8 +106,9 @@ export function LogsheetCard({ logsheet, entries, onNewEntry }) {
             </h5>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
               <InfoRow label="Driver's Name" value={driverName || "N/A"} />
-              <InfoRow label="Total Miles" value={logsheet.total_mileage} />
+              <InfoRow label="Trip's Total Miles" value={trip.total_mileage} />
               <InfoRow label="Date" value={logsheet.date} />
+              <InfoRow label="Trip start date" value={trip.date} />
             </div>
           </div>
 
@@ -117,19 +118,19 @@ export function LogsheetCard({ logsheet, entries, onNewEntry }) {
               Location & Cargo Details
             </h5>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-              <InfoRow label="Carrier Name" value={logsheet.shipper || "N/A"} />
-              <InfoRow label="Commodity" value={logsheet.commodity || "N/A"} />
+              <InfoRow label="Carrier Name" value={trip.shipper || "N/A"} />
+              <InfoRow label="Commodity" value={trip.commodity || "N/A"} />
               <InfoRow
                 label="Pickup Location"
-                value={logsheet.pickup_location || "N/A"}
+                value={trip.pickup_location || "N/A"}
               />
               <InfoRow
                 label="Destination Address"
-                value={logsheet.dropoff_location || "N/A"}
+                value={trip.dropoff_location || "N/A"}
               />
               <InfoRow
-                label="Current Address"
-                value={logsheet.current_location || "N/A"}
+                label="Start Address"
+                value={logsheet.start_location || "N/A"}
               />
             </div>
           </div>

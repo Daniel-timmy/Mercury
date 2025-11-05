@@ -17,17 +17,14 @@ import {
  * @param {boolean} props.isOpen - Whether the modal is open
  * @param {Function} props.onClose - Callback to close the modal
  * @param {Function} props.onSubmit - Callback when form is submitted
+ * @param {string|number} [props.tripId] - Trip ID for the logsheet
  */
-export function LogsheetModal({ isOpen, onClose, onSubmit }) {
+export function LogsheetModal({ isOpen, onClose, onSubmit, tripId }) {
   const [formData, setFormData] = useState({
-    driver: "",
-    current_location: "",
-    pickup_location: "",
-    dropoff_location: "",
+    start_location: "",
     vehicle_no: "",
     trailer_no: "",
-    shipper: "",
-    commodity: "",
+    trip: tripId || null,
     current_cycle_hours: 0,
   });
 
@@ -39,7 +36,6 @@ export function LogsheetModal({ isOpen, onClose, onSubmit }) {
       ...prev,
       [field]: value,
     }));
-    // Clear error for this field when user starts typing
     if (errors[field]) {
       setErrors((prev) => ({
         ...prev,
@@ -50,9 +46,8 @@ export function LogsheetModal({ isOpen, onClose, onSubmit }) {
 
   const validateForm = () => {
     const newErrors = {};
-
-    if (!formData.driver.trim()) {
-      newErrors.driver = "Driver name is required";
+    if (!formData.start_location.trim()) {
+      newErrors.start_location = "Start location is required";
     }
     if (!formData.vehicle_no.trim()) {
       newErrors.vehicle_no = "Vehicle number is required";
@@ -63,22 +58,6 @@ export function LogsheetModal({ isOpen, onClose, onSubmit }) {
     if (formData.current_cycle_hours < 0) {
       newErrors.current_cycle_hours = "Hours cannot be negative";
     }
-    if (!formData.current_location.trim()) {
-      newErrors.current_location = "Current location is required";
-    }
-    if (!formData.pickup_location.trim()) {
-      newErrors.pickup_location = "Pickup location is required";
-    }
-    if (!formData.dropoff_location.trim()) {
-      newErrors.dropoff_location = "Dropoff location is required";
-    }
-    if (!formData.shipper.trim()) {
-      newErrors.shipper = "Shipper is required";
-    }
-    if (!formData.commodity.trim()) {
-      newErrors.commodity = "Commodity is required";
-    }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -95,14 +74,10 @@ export function LogsheetModal({ isOpen, onClose, onSubmit }) {
             timeout: 3000,
           });
           setFormData({
-            driver: "",
-            current_location: "",
-            pickup_location: "",
-            dropoff_location: "",
+            start_location: "",
             vehicle_no: "",
             trailer_no: "",
-            shipper: "",
-            commodity: "",
+            trip: tripId || null,
             current_cycle_hours: 0,
           });
           setErrors({});
@@ -144,71 +119,21 @@ export function LogsheetModal({ isOpen, onClose, onSubmit }) {
         </ModalHeader>
         <ModalBody>
           <div className="flex flex-col gap-4">
-            {/* Driver Information */}
+            {/* Start Location */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-foreground/80">
-                Driver Information
-              </h3>
               <Input
-                label="Driver Name"
-                placeholder="Enter driver name"
-                value={formData.driver}
-                onValueChange={(value) => handleChange("driver", value)}
+                label="Start Location"
+                placeholder="Enter start location"
+                value={formData.start_location}
+                onValueChange={(value) => handleChange("start_location", value)}
                 isRequired
-                isInvalid={!!errors.driver}
-                errorMessage={errors.driver}
+                isInvalid={!!errors.start_location}
+                errorMessage={errors.start_location}
                 variant="bordered"
               />
             </div>
-
-            {/* Location Information */}
+            {/* Vehicle Number */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-foreground/80">
-                Location Information
-              </h3>
-              <Input
-                label="Current Location"
-                placeholder="Enter current location"
-                value={formData.current_location}
-                isRequired
-                isInvalid={!!errors.current_location}
-                errorMessage={errors.current_location}
-                onValueChange={(value) =>
-                  handleChange("current_location", value)
-                }
-                variant="bordered"
-              />
-              <Input
-                label="Pickup Location"
-                placeholder="Enter pickup location"
-                isRequired
-                isInvalid={!!errors.pickup_location}
-                errorMessage={errors.pickup_location}
-                value={formData.pickup_location}
-                onValueChange={(value) =>
-                  handleChange("pickup_location", value)
-                }
-                variant="bordered"
-              />
-              <Input
-                label="Dropoff Location"
-                placeholder="Enter dropoff location"
-                value={formData.dropoff_location}
-                isRequired
-                isInvalid={!!errors.dropoff_location}
-                errorMessage={errors.dropoff_location}
-                onValueChange={(value) =>
-                  handleChange("dropoff_location", value)
-                }
-                variant="bordered"
-              />
-            </div>
-
-            {/* Vehicle Information */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-foreground/80">
-                Vehicle Information
-              </h3>
               <Input
                 label="Vehicle Number"
                 placeholder="e.g., ABC-123"
@@ -219,6 +144,9 @@ export function LogsheetModal({ isOpen, onClose, onSubmit }) {
                 errorMessage={errors.vehicle_no}
                 variant="bordered"
               />
+            </div>
+            {/* Trailer Number */}
+            <div className="space-y-4">
               <Input
                 label="Trailer Number"
                 placeholder="e.g., XYZ-456"
@@ -230,39 +158,8 @@ export function LogsheetModal({ isOpen, onClose, onSubmit }) {
                 variant="bordered"
               />
             </div>
-
-            {/* Shipment Information */}
+            {/* Current Cycle Hours */}
             <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-foreground/80">
-                Shipment Information
-              </h3>
-              <Input
-                label="Shipper"
-                placeholder="Enter shipper name"
-                isRequired
-                isInvalid={!!errors.shipper}
-                errorMessage={errors.shipper}
-                value={formData.shipper}
-                onValueChange={(value) => handleChange("shipper", value)}
-                variant="bordered"
-              />
-              <Input
-                label="Commodity"
-                placeholder="Enter commodity type"
-                isRequired
-                isInvalid={!!errors.commodity}
-                errorMessage={errors.commodity}
-                value={formData.commodity}
-                onValueChange={(value) => handleChange("commodity", value)}
-                variant="bordered"
-              />
-            </div>
-
-            {/* Hours Information */}
-            <div className="space-y-4">
-              <h3 className="text-sm font-semibold text-foreground/80">
-                Hours Information
-              </h3>
               <Input
                 type="number"
                 label="Current Cycle Hours"
@@ -278,6 +175,17 @@ export function LogsheetModal({ isOpen, onClose, onSubmit }) {
                 step={0.5}
               />
             </div>
+            {/* Trip ID (hidden) */}
+            {/* If you want to show tripId, uncomment below
+            <div className="space-y-4">
+              <Input
+                label="Trip ID"
+                value={formData.tripId || ""}
+                disabled
+                variant="bordered"
+              />
+            </div>
+            */}
           </div>
         </ModalBody>
         <ModalFooter>

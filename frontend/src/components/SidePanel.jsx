@@ -1,121 +1,97 @@
-import { useEffect, useState } from "react";
-import {
-  Drawer,
-  DrawerContent,
-  DrawerHeader,
-  DrawerBody,
-  Button,
-  Spinner,
-  ScrollShadow,
-} from "@heroui/react";
+import { useState, memo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button, Spinner, ScrollShadow } from "@heroui/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faBars, faRefresh } from "@fortawesome/free-solid-svg-icons";
-import { usePanelData } from "../hooks/usePanelData";
+import { faBars, faRefresh, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { PanelItem } from "./PanelItem";
-import api, { getEntries } from "../hooks/api";
-
-/**
- * Groups logsheets by their creation date
- * @param {Array} data - Array of logsheet items
- * @returns {Object} - Object with dates as keys and arrays of items as values
- */
-function groupByDate(data) {
-  const groups = {};
-
-  data.forEach((item) => {
-    // Extract date from created_at or use a fallback
-    let dateKey = "Unknown Date";
-
-    if (item.created_at) {
-      const date = new Date(item.created_at);
-      dateKey = date.toLocaleDateString("en-US", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-    }
-
-    if (!groups[dateKey]) {
-      groups[dateKey] = [];
-    }
-    groups[dateKey].push(item);
-  });
-
-  return groups;
-}
+import { useGetSidePanelData } from "../hooks/useGetSidePanelData";
 
 /**
  * Responsive side panel component
  * Desktop: Always visible on the side
  * Mobile: Toggleable drawer
  * @param {Object} props
- * @param {string} props.apiEndpoint - API endpoint to fetch data from
- * @param {Function} props.setMainSheet - Callback to set the main sheet in parent
+ * @param {string} props.role - User role: 'admin', 'manager', or 'driver'
  * @param {Function} props.onItemClick - Optional callback when item is clicked
  */
-export function SidePanel({
-  apiEndpoint = "logsheets/",
-  setEntries,
-  setMainSheet,
+export const SidePanel = memo(function SidePanel({
   onItemClick,
+  mainMenuItems,
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const { data, loading, error, refetch } = usePanelData(apiEndpoint);
-  const [deleting, setDeleting] = useState(null);
-  const [selectedItemId, setSelectedItemId] = useState(null);
+  const [currentSection, setCurrentSection] = useState(null);
+  const [selectedItemId, setSelectedItemId] = useState("dashboard");
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    setMainSheet(data[0] || null);
-    if (data[0]) {
-      setSelectedItemId(data[0].id);
-      getEntries(data[0].id).then((entries) => {
-        setEntries(entries);
-      });
-    } else {
-      setEntries([]);
+  // Fetch paginated data
+  const {
+    results,
+    count,
+    next,
+    previous,
+    loading,
+    error,
+    refetch,
+    fetchNext,
+    fetchPrevious,
+  } = useGetSidePanelData(currentSection?.apiEndpoint || null);
+
+  const handleMainClick = (item) => {
+    setSelectedItemId(item.key);
+    setCurrentSection(item.apiEndpoint ? item : null);
+    if (!item.apiEndpoint) {
+      if (onItemClick) onItemClick(item);
+      navigate(item.key);
+      if (window.innerWidth < 768) setIsOpen(false);
     }
-  }, [data]);
+  };
 
   const handleItemClick = (item) => {
     setSelectedItemId(item.id);
-    if (onItemClick) {
-      onItemClick(item);
-    }
-    // Close drawer on mobile after selection
-    if (window.innerWidth < 768) {
-      setIsOpen(false);
-    }
+    if (onItemClick) onItemClick(item);
+    if (window.innerWidth < 768) setIsOpen(false);
+    navigate(`${currentSection.key}/${item.id}`, { state: { item } });
   };
 
-  const handleDelete = async (item) => {
-    if (
-      !confirm(
-        `Are you sure you want to delete the logsheet for ${item.driver}?`
-      )
-    ) {
-      return;
-    }
+  const handleLoadMore = () => {
+    if (next) fetchNext();
+  };
 
-    setDeleting(item.id);
-    try {
-      const response = await api.delete(`${apiEndpoint}${item.id}/`);
+  const handleRefresh = () => {
+    refetch();
+  };
 
-      if (response.status === 204 || response.status === 200) {
-        refetch();
-      } else {
-        throw new Error(`Failed to delete: ${response.status}`);
-      }
-    } catch (err) {
-      console.error("Error deleting logsheet:", err);
-      alert("Failed to delete logsheet. Please try again.");
-    } finally {
-      setDeleting(null);
-    }
+  const handleBackToMenu = () => {
+    setCurrentSection(null);
   };
 
   const renderContent = () => {
-    if (loading) {
+    if (!currentSection) {
+      // Main menu
+      return (
+        <ScrollShadow className="h-full">
+          <div className="p-4">
+            {mainMenuItems.map((item) => (
+              <div key={item.key} className="mb-2">
+                <Button
+                  variant={selectedItemId === item.key ? "solid" : "flat"}
+                  color={selectedItemId === item.key ? "primary" : "default"}
+                  onPress={() => handleMainClick(item)}
+                  className="w-full justify-start"
+                >
+                  {item.label}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </ScrollShadow>
+      );
+    }
+
+    // Sub section content with API data
+    const displayData = currentSection.apiEndpoint ? results : [];
+
+    if (loading && displayData.length === 0) {
       return (
         <div className="flex justify-center items-center h-full">
           <Spinner size="lg" color="primary" />
@@ -132,7 +108,7 @@ export function SidePanel({
       );
     }
 
-    if (data.length === 0) {
+    if (displayData.length === 0 && !loading) {
       return (
         <div className="flex items-center justify-center h-full">
           <p className="text-sm text-foreground/60">No items found</p>
@@ -140,116 +116,115 @@ export function SidePanel({
       );
     }
 
-    // Group data by date
-    const groupedData = groupByDate(data);
-    const dateKeys = Object.keys(groupedData);
-
     return (
       <ScrollShadow className="h-full">
         <div className="p-4">
-          {dateKeys.map((dateKey) => (
-            <div key={dateKey} className="mb-6">
-              {/* Date Header */}
-              <div className="mb-3 pb-2 border-b border-divider">
-                <h3 className="text-xs font-semibold text-foreground/70 uppercase tracking-wide">
-                  {dateKey}
-                </h3>
-              </div>
-
-              {/* Items for this date */}
-              {groupedData[dateKey].map((item) => (
-                <div
-                  key={item.id}
-                  className={deleting === item.id ? "opacity-50" : ""}
-                >
-                  <PanelItem
-                    item={item}
-                    onClick={() => handleItemClick(item)}
-                    onDelete={handleDelete}
-                    isSelected={selectedItemId === item.id}
-                  />
-                </div>
-              ))}
+          {displayData.map((item) => (
+            <div key={item.id}>
+              <PanelItem
+                item={item}
+                onClick={() => handleItemClick(item)}
+                isSelected={selectedItemId === item.id}
+              />
             </div>
           ))}
+
+          {/* Load More Button */}
+          {currentSection.apiEndpoint && next && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                variant="flat"
+                color="primary"
+                onPress={handleLoadMore}
+                isLoading={loading}
+                disabled={loading}
+                className="w-full"
+              >
+                {loading ? "Loading..." : "Load More"}
+              </Button>
+            </div>
+          )}
         </div>
       </ScrollShadow>
     );
   };
 
+  const panelContent = (
+    <div className="h-full flex flex-col">
+      <div className="p-4 border-b border-divider">
+        <h2 className="text-lg font-semibold text-foreground">
+          {currentSection ? currentSection.label : "Menu"}
+        </h2>
+        {currentSection && currentSection.apiEndpoint && (
+          <p className="text-xs text-foreground/60 mt-1">
+            {results.length} {results.length === 1 ? "item" : "items"}
+          </p>
+        )}
+      </div>
+      {currentSection && (
+        <>
+          <Button
+            variant="light"
+            onPress={handleBackToMenu}
+            size="sm"
+            aria-label="Back to menu"
+            className="mx-4 my-2"
+          >
+            Back to Menu
+          </Button>
+          {currentSection.apiEndpoint && (
+            <Button
+              onPress={handleRefresh}
+              size="sm"
+              aria-label="Refresh data"
+              isLoading={loading && results.length === 0}
+              className="mx-6 px-2 space-x-1.5 w-fit bg-blue-500 text-md text-white hover:bg-blue-700 mb-2"
+            >
+              <FontAwesomeIcon icon={faRefresh} className="" />
+              <p>Refresh</p>
+            </Button>
+          )}
+          <hr className="mx-2 text-white mt-2" />
+        </>
+      )}
+      <div className="flex-1 overflow-hidden">{renderContent()}</div>
+    </div>
+  );
+
   return (
     <>
-      {/* Mobile Toggle Button */}
+      {/* Mobile Menu Toggle Button */}
       <Button
         isIconOnly
         variant="flat"
-        color="default"
-        onPress={() => setIsOpen(true)}
-        className="lg:hidden fixed top-4 left-4 z-40"
-        aria-label="Open menu"
+        onPress={() => setIsOpen(!isOpen)}
+        className="lg:hidden fixed top-4 left-4 z-50"
+        aria-label="Toggle menu"
       >
-        <FontAwesomeIcon icon={faBars} className="text-lg" />
+        <FontAwesomeIcon icon={isOpen ? faTimes : faBars} />
       </Button>
 
-      {/* Desktop Side Panel */}
-      <aside className="hidden lg:block w-80 h-screen border-r border-divider bg-content1 fixed left-0 top-0">
-        <div className="h-full flex flex-col">
-          <div className="p-4 border-b border-divider">
-            <h2 className="text-lg font-semibold text-foreground">
-              Daily Logsheets
-            </h2>
-            <p className="text-xs text-foreground/60 mt-1">
-              {data.length} {data.length === 1 ? "item" : "items"}
-            </p>
-          </div>
-          <Button
-            isIconOnly
-            onPress={() => refetch()}
-            size="sm"
-            aria-label="Refresh data"
-            className="mx-6 px-2 space-x-1.5 w-fit bg-blue-500 text-md text-white hover:bg-blue-700  mb-2"
-          >
-            <FontAwesomeIcon icon={faRefresh} className="" />
-            <p>Refresh</p>
-          </Button>
-          <hr className="mx-2 text-white mt-10" />
+      {/* Mobile Backdrop */}
+      {isOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
 
-          <div className="flex-1 overflow-hidden">{renderContent()}</div>
-        </div>
+      {/* Mobile Side Panel */}
+      <aside
+        className={`lg:hidden w-80 h-screen border-r border-divider bg-content1 fixed left-0 top-0 z-50 transform transition-transform duration-300 ${
+          isOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        {panelContent}
       </aside>
 
-      {/* Mobile Drawer */}
-      <Drawer
-        isOpen={isOpen}
-        onOpenChange={setIsOpen}
-        placement="left"
-        size="sm"
-        className="lg:hidden"
-      >
-        <DrawerContent>
-          <DrawerHeader className="flex justify-between items-center">
-            <div>
-              <h2 className="text-lg font-semibold">Daily Logsheets</h2>
-              <p className="text-xs text-foreground/60 mt-1">
-                {data.length} {data.length === 1 ? "item" : "items"}
-              </p>
-            </div>
-          </DrawerHeader>
-          <Button
-            isIconOnly
-            variant="light"
-            onPress={() => refetch()}
-            size="sm"
-            aria-label="Refresh data"
-            className="mx-6 px-2 space-x-1.5 w-fit bg-blue-500 text-md text-white hover:bg-blue-600 mb-2"
-          >
-            <FontAwesomeIcon icon={faRefresh} className="" />
-            <p>Refresh</p>
-          </Button>
-          <hr className="mx-2 text-slate-400 mt-10" />
-          <DrawerBody className="p-0">{renderContent()}</DrawerBody>
-        </DrawerContent>
-      </Drawer>
+      {/* Desktop Side Panel */}
+      <aside className="hidden lg:block w-80 h-screen border-r border-divider bg-content1 fixed left-0 top-0 z-30">
+        {panelContent}
+      </aside>
     </>
   );
-}
+});

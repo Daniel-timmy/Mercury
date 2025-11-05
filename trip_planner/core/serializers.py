@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Tuple
-from datetime import datetime, timedelta, time
+from datetime import datetime, timedelta, time, date
 import re
 import logging
 import time as _time
@@ -10,9 +10,9 @@ from rest_framework import serializers  # type: ignore
 from rest_framework.serializers import ValidationError  # type: ignore
 from dotenv import load_dotenv
 
-from trip_planner.user.models import User
+from user.models import User
 
-from .models import LogEntry, LogSheet, Trip
+from .models import LogEntry, LogSheet, Trip, DriverPosition
 from .utils import geocode_address, get_route, hos_checker
 from .constants import (
     PICKUP_DROPOFF_HOURS,
@@ -33,7 +33,6 @@ class TripSerializer(serializers.ModelSerializer):
     Serializer for creating and managing trips.
     Handles assignment of manager and driver, and trip details.
     """
-    manager = serializers.PrimaryKeyRelatedField(queryset=Trip._meta.get_field('manager').related_model.objects.filter(role='manager'))
     driver = serializers.PrimaryKeyRelatedField(queryset=Trip._meta.get_field('driver').related_model.objects.filter(role='driver'), required=False, allow_null=True)
 
     class Meta:
@@ -54,9 +53,11 @@ class TripSerializer(serializers.ModelSerializer):
             "duration_days",
             "status",
             "shipper",
-            "commodity"
+            "commodity",
+            
+            "created_at",
         ]
-        read_only_fields = ["id", "stops", "start_coords", "pickup_coords", "end_coords", "total_mileage"]
+        read_only_fields = ["id", "stops","created_at" "start_coords", "pickup_coords", "end_coords", "total_mileage", "manager"]
 
     def _calculate_stops(self, data: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], float]:
         cur = data["_start_coords"]
@@ -128,6 +129,7 @@ class TripSerializer(serializers.ModelSerializer):
                 "msg": str(e),
             })
 
+        manager = self.context['request'].user
 
         start_coords = validated_data['_start_coords']
         end_coords = validated_data['_end_coords']
@@ -139,7 +141,7 @@ class TripSerializer(serializers.ModelSerializer):
         try:
             with transaction.atomic():
                 trip = Trip.objects.create(
-                     manager=validated_data["manager"],
+                     manager=manager,
                      driver=validated_data.get("driver", None),
                      start_location=start_address,
                      pickup_location=pickup_location,
@@ -174,6 +176,14 @@ class TripSerializer(serializers.ModelSerializer):
             })
     
     def update(self, instance, validated_data):
+
+        user = self.context['request'].user
+        if user.role == 'driver' and len(validated_data) > 1:
+            raise ValidationError("Drivers can only update the status field.")
+        if 'status' not in validated_data.keys() and user.role == 'driver':
+            raise ValidationError("Drivers can only update the status field.")
+
+
         address_fields = {"start_location", "pickup_location", "dropoff_location"}
         address_updated = address_fields & validated_data.keys()
 
@@ -184,12 +194,12 @@ class TripSerializer(serializers.ModelSerializer):
             for field in ["manager", "driver", "start_date", "duration_days", "status", "shipper", "commodity"]:
                 if field in validated_data:
                     setattr(instance, field, validated_data[field])
-            stops, total_mileage = self._calculate_stops(validated_data)
             if address_updated:
                 # Geocode + update
                 validated_data['_start_coords'] = geocode_address(validated_data["start_location"], API_KEY1)
                 validated_data['_pickup_coords'] = geocode_address(validated_data["pickup_location"], API_KEY2)
                 validated_data['_end_coords'] = geocode_address(validated_data["dropoff_location"], API_KEY1)
+                stops, total_mileage = self._calculate_stops(validated_data)
 
                 instance.start_location = validated_data["start_location"]
                 instance.pickup_location = validated_data["pickup_location"]
@@ -203,18 +213,11 @@ class TripSerializer(serializers.ModelSerializer):
             instance.save()
         return instance
 
-    def validate_manager(self, value):
-        if value:
-            if value.role != 'manager':
-                raise ValidationError("Manager must have role 'manager'.")
-        else:
-            raise ValidationError("Manager is required.")
-        return value
-
     def validate_driver(self, value):
         if value:
             if value.role != 'driver':
                 raise ValidationError("Driver must have role 'driver'.")
+        
         return value
 
     def validate_status(self, value):
@@ -258,7 +261,6 @@ class LogSheetSerializer(serializers.ModelSerializer):
     Handles route planning, fueling stops, and basic log sheet operations.
     """
     trip = serializers.PrimaryKeyRelatedField(queryset=Trip.objects.all())
-    driver = serializers.PrimaryKeyRelatedField(queryset=LogSheet._meta.get_field('driver').related_model.objects.filter(role='driver'), required=False, allow_null=True)
 
     class Meta:
         model = LogSheet
@@ -273,17 +275,16 @@ class LogSheetSerializer(serializers.ModelSerializer):
             "on_duty_start_time",
             "driver",
 
-            "current_location",
-      
+            "start_location",
             "total_mileage",
+            "start_coords",
+            "current_cycle_hours",
 
             "vehicle_no",
             "trailer_no",
      
-            "current_cycle_hours",
             "created_at",
 
-            "start_coords",
      
     
              ]
@@ -294,8 +295,10 @@ class LogSheetSerializer(serializers.ModelSerializer):
             "on_duty",
             "off_duty",
             "driving",
+            "driver",
             "on_duty_start_time",
             "start_coords",
+            "created_at",
         ]
 
     def create(self, validated_data: Dict[str, Any]) -> LogSheet:
@@ -312,6 +315,10 @@ class LogSheetSerializer(serializers.ModelSerializer):
             ValidationError: If logsheet already exists or creation fails
         """
         start_perf = _time.perf_counter()
+        prev_logsheet = LogSheet.objects.filter(driver=validated_data.get("driver"), date=date.today()).first()
+        if prev_logsheet:
+            raise ValidationError("LogSheet for today already exists for this driver.")
+
         logger.debug(
             "LogSheet.create called: driver=%s vehicle_no=%s start=%s ",
             validated_data.get("driver"),
@@ -319,16 +326,19 @@ class LogSheetSerializer(serializers.ModelSerializer):
             validated_data.get("start_location"),
         )
 
-
         # Extract and validate location data
         current_address: str = validated_data["start_location"]
+
+        driver = self.context['request'].user
+        if driver.role != 'driver':
+            raise ValidationError("Only drivers can create logsheets")
 
         try:
             tx_start = _time.perf_counter()
             with transaction.atomic():
                 # Create logsheet with all route and stop information
                 logsheet = LogSheet.objects.create(
-                   driver=validated_data.get("driver", "Driver"),
+                   driver=driver,
 
                    vehicle_no=validated_data["vehicle_no"],
                    trailer_no=validated_data.get("trailer_no", ""),
@@ -369,11 +379,7 @@ class LogSheetSerializer(serializers.ModelSerializer):
             raise ValidationError("Start location is required.")
         return value
 
-    def validate_driver(self, value: User) -> User:
-        if value:
-            if value.role != 'driver':
-                raise ValidationError("Driver must have role 'driver'.")
-        return value
+
 
 
 class LogEntrySerializer(serializers.ModelSerializer):
@@ -532,12 +538,13 @@ class LogEntrySerializer(serializers.ModelSerializer):
         verifies location geocoding, continuity with previous entry, 24-hour duration checks,
         and runs hos_checker early so we fail fast.
         """
+        print("Validating log entry:", attrs)
         sheet_id = attrs.get("log_id")
         if not sheet_id:
             raise ValidationError({
                 "error": "Validation error",
                 "success": False,
-                "msg": "log_id is required.",
+                "msg": "logsheet id is required.",
             })
 
         span = attrs.get("span", "")
@@ -657,3 +664,73 @@ class LogEntrySerializer(serializers.ModelSerializer):
         attrs["_computed"] = {"start_time": start_time, "end_time": end_time, "duration": duration}
         logger.debug("LogEntry.validate successful for log_id=%s computed=%s", sheet_id, attrs["_computed"])
         return attrs
+
+    
+class DriverPositionSerializer(serializers.ModelSerializer):
+    """
+    Serializer for DriverPosition model.
+    Serializes all fields.
+    """
+    latitude = serializers.FloatField(write_only=True, required=True)
+    longitude = serializers.FloatField(write_only=True, required=True)
+    # driver = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
+    class Meta:
+        model = DriverPosition
+        fields = [
+            'id',
+            'driver',
+            'position_coords',
+            'timestamp',
+            'created_at',
+            'latitude',    # write-only, not a model field
+            'longitude',   # write-only, not a model field
+        ]
+        write_only_fields = ['latitude', 'longitude']
+        read_only_fields = ['id', 'driver', 'position_coords', 'created_at']
+
+    def validate_latitude(self, value):
+        if value < -90 or value > 90:
+            raise ValidationError("Latitude must be between -90 and 90.")
+        return value
+
+    def validate_longitude(self, value):
+        if value < -180 or value > 180:
+            raise ValidationError("Longitude must be between -180 and 180.")
+        return value
+
+    def validate_timestamp(self, value):
+        # Corrected method name for timestamp validation
+        if not value:
+            raise ValidationError("Timestamp cannot be in the future.")
+        return value
+
+    def create(self, validated_data):
+        driver = self.context['request'].user
+
+        if driver.role != 'driver':
+            raise ValidationError("Only drivers can create position entries.")
+
+        try:
+            position_coords = {
+                "latitude": validated_data["latitude"],
+                "longitude": validated_data["longitude"],
+            }
+
+            driver_position = DriverPosition.objects.create(
+                driver=driver,
+                position_coords=position_coords,
+                # Pass timestamp if present
+                timestamp=validated_data.get("timestamp", None),
+            )
+            driver_position.save()
+        except Exception as e:
+            print("Exception creating DriverPosition:", e)
+            logger.exception("Error creating DriverPosition (driver=%s): %s", driver, e)
+            raise ValidationError({
+                "error": "Error creating DriverPosition",
+                "success": False,
+                "msg": str(e),
+            })
+
+        return driver_position

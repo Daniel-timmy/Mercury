@@ -29,9 +29,10 @@ const API_KEY = import.meta.env.VITE_ARCGIS_API_KEY;
  * - Interactive popups with location details
  *
  * @param {Object} logsheet - The main logsheet data containing route information
+ * @param {Object} trip - The trip data associated with the logsheet
  * @param {Array} entries - Array of log entries with coordinates and activities
  */
-const MapCard = ({ logsheet, entries }) => {
+const MapCard = ({ logsheet, trip, entries }) => {
   // State for managing route stops and graphics
   const [stops, setStops] = useState([]); // Collection of stop points for routing
   const [graphics, setGraphics] = useState([]); // Visual markers for log entries
@@ -111,6 +112,7 @@ const MapCard = ({ logsheet, entries }) => {
   useEffect(() => {
     // Don't render if no logsheet data is available
     if (!logsheet) return;
+    if (!trip) return;
 
     // Configure ArcGIS with API key
     esriConfig.apiKey = API_KEY;
@@ -149,39 +151,39 @@ const MapCard = ({ logsheet, entries }) => {
 
           // Starting point (current location)
           const startPoint = new Point({
-            x: logsheet.start_coords.longitude,
-            y: logsheet.start_coords.latitude,
+            x: trip.start_coords.longitude,
+            y: trip.start_coords.latitude,
             spatialReference: { wkid: 4326 },
           });
 
           // Pickup point
           const pickupPoint = new Point({
-            x: logsheet.pickup_coords.longitude,
-            y: logsheet.pickup_coords.latitude,
+            x: trip.pickup_coords.longitude,
+            y: trip.pickup_coords.latitude,
             spatialReference: { wkid: 4326 },
           });
 
           // End/dropoff point
           const endPoint = new Point({
-            x: logsheet.end_coords.longitude,
-            y: logsheet.end_coords.latitude,
+            x: trip.end_coords.longitude,
+            y: trip.end_coords.latitude,
             spatialReference: { wkid: 4326 },
           });
 
           // Create Stop objects for route calculation
           const startStop = new Stop({
             geometry: startPoint,
-            name: logsheet.pickup_location,
+            name: trip.pickup_location,
           });
 
           const pickupStop = new Stop({
             geometry: pickupPoint,
-            name: logsheet.pickup_location,
+            name: trip.pickup_location,
           });
 
           const endStop = new Stop({
             geometry: endPoint,
-            name: logsheet.dropoff_location,
+            name: trip.dropoff_location,
           });
 
           // Create visual graphics for the three main points
@@ -196,7 +198,7 @@ const MapCard = ({ logsheet, entries }) => {
             },
             attributes: {
               Name: "Starting point of the route",
-              Description: `${logsheet.current_location}`,
+              Description: `${trip.current_location}`,
             },
             popupTemplate: new PopupTemplate({
               title: "{Name}",
@@ -214,7 +216,7 @@ const MapCard = ({ logsheet, entries }) => {
             },
             attributes: {
               Name: "Pickup point of the route",
-              Description: `${logsheet.pickup_location}`,
+              Description: `${trip.pickup_location}`,
             },
             popupTemplate: new PopupTemplate({
               title: "{Name}",
@@ -232,7 +234,7 @@ const MapCard = ({ logsheet, entries }) => {
             },
             attributes: {
               Name: "End point of the route",
-              Description: `${logsheet.dropoff_location}`,
+              Description: `${trip.dropoff_location}`,
             },
             popupTemplate: new PopupTemplate({
               title: "{Name}",
