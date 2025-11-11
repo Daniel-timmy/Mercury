@@ -5,3 +5,4 @@
 /trip_planner/db.sqlite3
 /trip_planner/sub
 test.py
+/trip_planner/logs
