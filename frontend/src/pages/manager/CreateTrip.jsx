@@ -23,7 +23,7 @@ const CreateTrip = () => {
 
   // Fetch drivers list
   const { results: drivers, loading: driversLoading } =
-    usePersonnelData("drivers");
+    usePersonnelData("users/drivers");
 
   // Form state
   const [formData, setFormData] = useState({
@@ -123,7 +123,7 @@ const CreateTrip = () => {
       ).padStart(2, "0")}-${String(formData.start_date.day).padStart(2, "0")}`;
 
       const payload = {
-        driver: formData.driver.id,
+        driver: formData.driver,
         start_location: formData.start_location,
         pickup_location: formData.pickup_location,
         dropoff_location: formData.dropoff_location,
@@ -161,9 +161,9 @@ const CreateTrip = () => {
           Object.keys(error.response.data).forEach((key) => {
             const messages = error.response.data[key];
             fieldErrors[key] = Array.isArray(messages) ? messages[0] : messages;
+            errorMessage = fieldErrors[key];
           });
           setErrors(fieldErrors);
-          errorMessage = "Please check the form for errors";
         } else if (typeof error.response.data === "string") {
           errorMessage = error.response.data;
         }

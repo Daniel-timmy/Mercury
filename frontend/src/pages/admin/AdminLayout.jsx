@@ -12,7 +12,7 @@ const AdminLayout = () => {
     {
       label: "Fleets",
       key: "fleets",
-      apiEndpoint: "fleets/",
+      apiEndpoint: "",
     },
     {
       label: "Personnels",

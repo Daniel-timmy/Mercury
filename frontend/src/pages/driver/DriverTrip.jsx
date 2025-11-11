@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
-import { Button, Spinner, Card, CardBody, Chip } from "@heroui/react";
+import { Button, Spinner, Card, CardBody, Chip, Select, SelectItem, addToast } from "@heroui/react";
 import { useGetSidePanelData } from "../../hooks/useGetSidePanelData";
 import { LogsheetCard } from "../../components/LogsheetCard";
 import { LogsheetModal } from "../../components/LogsheetModal";
@@ -21,6 +21,8 @@ const DriverTrip = () => {
   const [selectedLogId, setSelectedLogId] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEntryModalOpen, setIsEntryModalOpen] = useState(false);
+  const [tripStatus, setTripStatus] = useState(item?.status || "");
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const handleItemClick = (log) => {
     setSelectedLogId(log.id);
@@ -75,6 +77,98 @@ const DriverTrip = () => {
     }
   };
 
+  /**
+   * Handles updating the trip status
+   */
+  const handleStatusUpdate = async (newStatus) => {
+    if (!item?.id || !newStatus) return;
+
+    setIsUpdatingStatus(true);
+    try {
+      const response = await api.patch(`trips/${item.id}/`, {
+        status: newStatus,
+      });
+
+      if (response.status === 200) {
+        setTripStatus(newStatus);
+        // Update the item in location state
+        if (item) {
+          item.status = newStatus;
+        }
+        addToast({
+          title: "Success",
+          description: "Trip status updated successfully!",
+          color: "success",
+          timeout: 3000,
+        });
+      }
+    } catch (error) {
+      console.error("Error updating trip status:", error);
+      let errorMessage = "Failed to update trip status.";
+      
+      if (error.response?.data) {
+        errorMessage = typeof error.response.data === "string" 
+          ? error.response.data 
+          : error.response.data.error || errorMessage;
+      }
+
+      addToast({
+        title: "Error",
+        description: errorMessage,
+        color: "danger",
+        timeout: 4000,
+      });
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
+  /**
+   * Handles deleting a logsheet
+   */
+  const handleDeleteLogsheet = async (logsheetId) => {
+    if (!logsheetId) return;
+
+    try {
+      const response = await api.delete(`logsheets/${logsheetId}/`);
+
+      if (response.status === 204 || response.status === 200) {
+        addToast({
+          title: "Success",
+          description: "Logsheet deleted successfully!",
+          color: "success",
+          timeout: 3000,
+        });
+
+        // Clear the main sheet if it was the deleted one
+        if (mainSheet?.id === logsheetId) {
+          setMainSheet(null);
+          setSelectedLogId(null);
+          setEntries([]);
+        }
+
+        // Refresh the logsheets list
+        refetch();
+      }
+    } catch (error) {
+      console.error("Error deleting logsheet:", error);
+      let errorMessage = "Failed to delete logsheet.";
+      
+      if (error.response?.data) {
+        errorMessage = typeof error.response.data === "string" 
+          ? error.response.data 
+          : error.response.data.error || errorMessage;
+      }
+
+      addToast({
+        title: "Error",
+        description: errorMessage,
+        color: "danger",
+        timeout: 4000,
+      });
+    }
+  };
+
   const handleLogEntrySubmit = async (entryData) => {
     try {
       const response = await api.post("logentries/", entryData);
@@ -107,17 +201,6 @@ const DriverTrip = () => {
     }
   };
 
-  // const handleLogEntrySubmit = (data) => {
-  //   console.log("Log entry submitted:", data);
-  //   setIsEntryModalOpen(false);
-  //   // Refresh entries
-  //   if (mainSheet?.id) {
-  //     getEntries(mainSheet.id).then((entries) => {
-  //       setEntries(entries);
-  //     });
-  //   }
-  // };
-
   // Fetch paginated logsheets for this trip
   const {
     results: logsheets,
@@ -143,6 +226,13 @@ const DriverTrip = () => {
     }
     return "primary";
   };
+
+  // Status options for trip
+  const statusOptions = [
+    { value: "pending", label: "Pending" },
+    { value: "in_progress", label: "In Progress" },
+    { value: "completed", label: "Completed" },
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -185,13 +275,33 @@ const DriverTrip = () => {
                       {item.name || item.label || "N/A"}
                     </p>
                   </div>
-                  <div>
-                    <span className="text-xs font-medium text-foreground/60 uppercase tracking-wide">
+                  <div className="sm:col-span-2">
+                    <span className="text-xs font-medium text-foreground/60 uppercase tracking-wide block mb-2">
                       Trip Status
                     </span>
-                    <p className="text-sm font-semibold text-foreground mt-1">
-                      {item.status}
-                    </p>
+                    <Select
+                      aria-label="Trip Status"
+                      placeholder="Select status"
+                      selectedKeys={tripStatus ? [tripStatus] : []}
+                      onSelectionChange={(keys) => {
+                        const selectedStatus = Array.from(keys)[0];
+                        if (selectedStatus && selectedStatus !== tripStatus) {
+                          handleStatusUpdate(selectedStatus);
+                        }
+                      }}
+                      isDisabled={isUpdatingStatus}
+                      variant="bordered"
+                      size="sm"
+                      classNames={{
+                        trigger: "min-h-unit-10",
+                      }}
+                    >
+                      {statusOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </Select>
                   </div>
                 </div>
               </CardBody>
@@ -211,6 +321,7 @@ const DriverTrip = () => {
                 logsheet={mainSheet}
                 entries={entries}
                 onNewEntry={() => setIsEntryModalOpen(true)}
+                onDeleteLogsheet={handleDeleteLogsheet}
                 onUpdateLogsheet={(updatedData) =>
                   console.log("Logsheet updated with data:", updatedData)
                 }

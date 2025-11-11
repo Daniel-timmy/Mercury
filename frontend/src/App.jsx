@@ -24,6 +24,11 @@ import CreateTrip from "./pages/manager/CreateTrip";
 import AdminTrip from "./pages/admin/AdminTrip";
 
 import ManagerMap from "./pages/manager/ManagerMap";
+import ManagerTrucks from "./pages/manager/ManagerTrucks";
+
+import AdminFleets from "./pages/admin/AdminFleets";
+
+import DriverTruck from "./pages/driver/DriverTruck";
 
 import { jwtDecode } from "jwt-decode";
 import Cookies from "js-cookie";
@@ -75,6 +80,7 @@ function App() {
             <Route path="dashboard" element={<div>Admin Dashboard</div>} />
             <Route path="personnels" element={<AdminPersonnel />} />
             <Route path="trip/:id" element={<AdminTrip />} />
+            <Route path="fleets" element={<AdminFleets />} />
           </Route>
           <Route
             path="/manager/"
@@ -89,6 +95,7 @@ function App() {
             <Route path="trip/:id" element={<ManagerTrip />} />
             <Route path="new/trip" element={<CreateTrip />} />
             <Route path="map" element={<ManagerMap />} />
+            <Route path="trucks" element={<ManagerTrucks />} />
           </Route>
           <Route
             path="/driver/"
@@ -100,6 +107,7 @@ function App() {
           >
             <Route path="dashboard" element={<div>Driver Dashboard</div>} />
             <Route path="trip/:id" element={<DriverTrip />} />
+            <Route path="truck" element={<DriverTruck />} />
           </Route>
           <Route path="/logout" element={<LogOut />} />
         </Routes>

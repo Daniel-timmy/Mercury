@@ -22,6 +22,17 @@ class DriverViewSet(ModelViewSet):
     serializer_class = UserSerializer
     ordering_fields = ['created_at', 'name', 'email']
 
+    def get_queryset(self):
+        user = self.request.user
+        if type(user) != User:
+            return User.objects.none()
+        if user.role == 'admin':
+            return self.queryset
+        elif user.role == 'manager':
+            return self.queryset.filter(manager=user)
+        elif user.role == 'driver':
+            return self.queryset.filter(id=user.id)
+        return User.objects.none()
 
     def get_permissions(self):
         if self.action in ['list', 'retrieve']:
@@ -31,7 +42,6 @@ class DriverViewSet(ModelViewSet):
         return [permission() for permission in permission_classes]
 
     def create(self, request, *args, **kwargs):
-        print(request.body)
         if not request.data.get('role') or request.data['role'] != 'driver':
             return Response({'detail': 'Role must be driver.'}, status=status.HTTP_400_BAD_REQUEST)
         if request.user.role not in ['admin', 'manager']:
@@ -39,20 +49,28 @@ class DriverViewSet(ModelViewSet):
         return super().create(request, *args, **kwargs)
 
     def update(self, request, *args, **kwargs):
+        instance = self.get_object()  # Get the user being updated
         if request.user.role not in ['admin', 'manager']:
             return Response({'detail': 'Only authenticated admin or manager can update drivers.'}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role == 'manager' and instance.manager != request.user:
+            return Response({'detail': 'Managers can only update their own drivers.'}, status=status.HTTP_403_FORBIDDEN)
         return super().update(request, *args, **kwargs)
     
     def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()  # Get the user being updated
         if request.user.role not in ['admin', 'manager']:
             return Response({'detail': 'Only authenticated admin or manager can update drivers.'}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role == 'manager' and instance.manager != request.user:
+            return Response({'detail': 'Managers can only update their own drivers.'}, status=status.HTTP_403_FORBIDDEN)
         return super().partial_update(request, *args, **kwargs)
-
+    
     def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()  # Get the user being deleted
         if request.user.role not in ['admin', 'manager']:
             return Response({'detail': 'Only authenticated admin or manager can delete drivers.'}, status=status.HTTP_403_FORBIDDEN)
+        if request.user.role == 'manager' and instance.manager != request.user:
+            return Response({'detail': 'Managers can only delete their own drivers.'}, status=status.HTTP_403_FORBIDDEN)
         return super().destroy(request, *args, **kwargs)
-    
 class ManagerViewSet(ModelViewSet):
     """
     ViewSet for managing Manager users.

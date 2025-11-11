@@ -20,9 +20,9 @@ class Trip(models.Model):
     )
     driver = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
+        on_delete=models.DO_NOTHING,
+        null=False,
+        blank=False,
         related_name='driver_trips'
     )
     start_location = models.CharField(max_length=200, null=False, blank=False)
@@ -154,6 +154,7 @@ class LogEntry(models.Model):
         return f"{self.logsheet.driver} - {self.duty_status} - {self.date}"
     
 class DriverPosition(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     driver = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

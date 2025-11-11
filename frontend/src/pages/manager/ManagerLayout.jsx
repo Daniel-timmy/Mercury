@@ -18,7 +18,7 @@ const ManagerLayout = () => {
     {
       label: "Trucks",
       key: "trucks",
-      apiEndpoint: "trucks/",
+      apiEndpoint: null,
     },
   ];
   return (

@@ -18,7 +18,7 @@ const AdminPersonnel = () => {
     refetch: adminRefetch,
     fetchNext: adminFetchNext,
     fetchPrevious: adminFetchPrevious,
-  } = usePersonnelData("admins");
+  } = usePersonnelData("users/admins/");
 
   const {
     results: managerResults,
@@ -30,7 +30,7 @@ const AdminPersonnel = () => {
     refetch: managerRefetch,
     fetchNext: managerFetchNext,
     fetchPrevious: managerFetchPrevious,
-  } = usePersonnelData("managers");
+  } = usePersonnelData("users/managers/");
 
   const {
     results: driverResults,
@@ -42,7 +42,7 @@ const AdminPersonnel = () => {
     refetch: driverRefetch,
     fetchNext: driverFetchNext,
     fetchPrevious: driverFetchPrevious,
-  } = usePersonnelData("drivers");
+  } = usePersonnelData("users/drivers/");
 
   const {
     createUser,

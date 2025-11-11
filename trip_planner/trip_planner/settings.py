@@ -23,6 +23,11 @@ FRONTEND_URL: str | None = os.environ.get('FRONTEND_URL')
 SECRET: str | None = os.environ.get('SECRET')
 HOST: str | None = os.environ.get('HOST')
 
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
+# Create the folder if it doesn't exist
+os.makedirs(os.path.join(MEDIA_ROOT, 'temp_uploads'), exist_ok=True)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
@@ -54,6 +59,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'core',
     'user',
+    'fleet',
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',
@@ -95,6 +101,8 @@ CHANNEL_LAYERS = {
         "CONFIG": {"hosts": [("127.0.0.1", 6379)]},
     },
 }
+
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
 # SIMPLE_JWT = {
 #     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=300),
 #     'SLIDING_TOKEN_REFRESH_LIFETIME': timedelta(days=1),

@@ -21,7 +21,7 @@ const ManagerPersonnel = () => {
     refetch: driverRefetch,
     fetchNext: driverFetchNext,
     fetchPrevious: driverFetchPrevious,
-  } = usePersonnelData("drivers");
+  } = usePersonnelData("users/drivers/");
 
   const {
     createUser,

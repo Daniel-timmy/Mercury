@@ -10,8 +10,6 @@ from rest_framework import serializers  # type: ignore
 from rest_framework.serializers import ValidationError  # type: ignore
 from dotenv import load_dotenv
 
-from user.models import User
-
 from .models import LogEntry, LogSheet, Trip, DriverPosition
 from .utils import geocode_address, get_route, hos_checker
 from .constants import (
@@ -33,7 +31,7 @@ class TripSerializer(serializers.ModelSerializer):
     Serializer for creating and managing trips.
     Handles assignment of manager and driver, and trip details.
     """
-    driver = serializers.PrimaryKeyRelatedField(queryset=Trip._meta.get_field('driver').related_model.objects.filter(role='driver'), required=False, allow_null=True)
+    driver = serializers.PrimaryKeyRelatedField(queryset=Trip._meta.get_field('driver').related_model.objects.filter(role='driver'), required=True, allow_null=False)
 
     class Meta:
         model = Trip
@@ -54,10 +52,18 @@ class TripSerializer(serializers.ModelSerializer):
             "status",
             "shipper",
             "commodity",
-            
             "created_at",
         ]
-        read_only_fields = ["id", "stops","created_at" "start_coords", "pickup_coords", "end_coords", "total_mileage", "manager"]
+        read_only_fields = [
+            "id",
+            "stops",
+            "created_at",
+            "start_coords",
+            "pickup_coords",
+            "end_coords",
+            "total_mileage",
+            "manager"
+        ]
 
     def _calculate_stops(self, data: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], float]:
         cur = data["_start_coords"]
@@ -111,6 +117,7 @@ class TripSerializer(serializers.ModelSerializer):
         Raises:
             ValidationError: If creation fails
         """
+        print("TripSerializer.create called with data:", validated_data)
         # Extract and validate location data
         start_address: str = validated_data["start_location"]
         dropoff_address: str = validated_data["dropoff_location"]
@@ -142,7 +149,7 @@ class TripSerializer(serializers.ModelSerializer):
             with transaction.atomic():
                 trip = Trip.objects.create(
                      manager=manager,
-                     driver=validated_data.get("driver", None),
+                     driver=validated_data.get("driver"),
                      start_location=start_address,
                      pickup_location=pickup_location,
                      dropoff_location=dropoff_address,
@@ -214,9 +221,10 @@ class TripSerializer(serializers.ModelSerializer):
         return instance
 
     def validate_driver(self, value):
-        if value:
-            if value.role != 'driver':
-                raise ValidationError("Driver must have role 'driver'.")
+        if value is None:
+            raise ValidationError("Driver is required.")
+        if value.role != 'driver':
+            raise ValidationError("Driver must have role 'driver'.")
         
         return value
 
@@ -227,6 +235,7 @@ class TripSerializer(serializers.ModelSerializer):
         return value
     
     def validate_pickup_location(self, value):
+        print("QWERTYYYYYYYYYYYYYYYTR")
         if not value or len(value.strip()) == 0:
             raise ValidationError({
                 "error": "Validation error",
@@ -274,20 +283,14 @@ class LogSheetSerializer(serializers.ModelSerializer):
             "driving",
             "on_duty_start_time",
             "driver",
-
             "start_location",
             "total_mileage",
             "start_coords",
             "current_cycle_hours",
-
             "vehicle_no",
             "trailer_no",
-     
             "created_at",
-
-     
-    
-             ]
+        ]
         read_only_fields = [
             "id",
             "date",
@@ -295,7 +298,6 @@ class LogSheetSerializer(serializers.ModelSerializer):
             "on_duty",
             "off_duty",
             "driving",
-            "driver",
             "on_duty_start_time",
             "start_coords",
             "created_at",
@@ -691,25 +693,41 @@ class DriverPositionSerializer(serializers.ModelSerializer):
 
     def validate_latitude(self, value):
         if value < -90 or value > 90:
-            raise ValidationError("Latitude must be between -90 and 90.")
+            raise ValidationError({
+                "error": "Error creating DriverPosition",
+                "success": False,
+                "msg": "Latitude must be between -90 and 90.",
+            })
         return value
 
     def validate_longitude(self, value):
         if value < -180 or value > 180:
-            raise ValidationError("Longitude must be between -180 and 180.")
+            raise ValidationError({
+                "error": "Error creating DriverPosition",
+                "success": False,
+                "msg": "Longitude must be between -180 and 180.",
+            })
         return value
 
     def validate_timestamp(self, value):
         # Corrected method name for timestamp validation
         if not value:
-            raise ValidationError("Timestamp cannot be in the future.")
+            raise ValidationError({
+                "error": "Error creating DriverPosition",
+                "success": False,
+                "msg": "Timestamp cannot be in the future.",
+            })
         return value
 
     def create(self, validated_data):
         driver = self.context['request'].user
 
         if driver.role != 'driver':
-            raise ValidationError("Only drivers can create position entries.")
+            raise ValidationError({
+                "error": "Error creating DriverPosition",
+                "success": False,
+                "msg": "Only drivers can create position entries.",
+            })
 
         try:
             position_coords = {

@@ -23,7 +23,7 @@ export const usePersonnelData = (endpoint) => {
     setError(null);
 
     try {
-      const response = await api.get(`users/${url}/`);
+      const response = await api.get(url);
       setData({
         results: response.data.results,
         count: response.data.count,

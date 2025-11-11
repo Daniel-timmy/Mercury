@@ -60,8 +60,9 @@ function StatusTable({ driving, berth, onDuty, offDuty }) {
  * @param {Object} props.logsheet - The logsheet data containing all information
  * @param {Array} props.entries - Array of log entries for the line graph
  * @param {Function} props.onNewEntry - Callback for new entry button
+ * @param {Function} props.onDeleteLogsheet - Callback for delete logsheet button
  */
-export function LogsheetCard({ trip, logsheet, entries, onNewEntry }) {
+export function LogsheetCard({ trip, logsheet, entries, onNewEntry, onDeleteLogsheet }) {
   if (!logsheet) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -205,14 +206,20 @@ export function LogsheetCard({ trip, logsheet, entries, onNewEntry }) {
             >
               New Entry
             </Button>
-            {/* <Button
-              color="primary"
-              size="lg"
-              onPress={onUpdateLogsheet}
-              className="w-full sm:w-auto min-w-[160px] font-semibold"
-            >
-              Update Logsheet
-            </Button> */}
+            {onDeleteLogsheet && (
+              <Button
+                color="danger"
+                size="lg"
+                onPress={() => {
+                  if (window.confirm("Are you sure you want to delete this logsheet? This action cannot be undone.")) {
+                    onDeleteLogsheet(logsheet.id);
+                  }
+                }}
+                className="w-full sm:w-auto min-w-[160px] font-semibold"
+              >
+                Delete Logsheet
+              </Button>
+            )}
           </div>
         )}
       </CardBody>
