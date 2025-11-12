@@ -10,14 +10,16 @@ import {
 } from "@heroui/react";
 import Cookies from "js-cookie";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faGasPump } from "@fortawesome/free-solid-svg-icons";
+import { faGasPump, faClipboardList } from "@fortawesome/free-solid-svg-icons";
 import { useVehicleData } from "../../hooks/useVehicleData";
 import { useFuelLog } from "../../hooks/useFuelLog";
 import { FuelLogModal } from "../../components/FuelLogModal";
+import { FuelLogSidePanel } from "../../components/FuelLogSidePanel";
 import { addToast } from "@heroui/react";
 
 const DriverTruck = () => {
   const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
+  const [isFuelLogPanelOpen, setIsFuelLogPanelOpen] = useState(false);
   const [driverId, setDriverId] = useState(null);
   const [vehicle, setVehicle] = useState(null);
 
@@ -64,6 +66,10 @@ const DriverTruck = () => {
     if (result) {
       setIsFuelModalOpen(false);
       refetchVehicle();
+      // Refresh the fuel log panel if it's open
+      if (isFuelLogPanelOpen) {
+        // The panel will auto-refresh when it detects new data
+      }
     }
   };
 
@@ -144,14 +150,25 @@ const DriverTruck = () => {
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">My Vehicle</h1>
-        <Button
-          color="primary"
-          startContent={<FontAwesomeIcon icon={faGasPump} />}
-          onPress={() => setIsFuelModalOpen(true)}
-          size="lg"
-        >
-          Enter Fuel Log
-        </Button>
+        <div className="flex gap-3">
+          <Button
+            color="secondary"
+            variant="flat"
+            startContent={<FontAwesomeIcon icon={faClipboardList} />}
+            onPress={() => setIsFuelLogPanelOpen(true)}
+            size="lg"
+          >
+            View Fuel Logs
+          </Button>
+          <Button
+            color="primary"
+            startContent={<FontAwesomeIcon icon={faGasPump} />}
+            onPress={() => setIsFuelModalOpen(true)}
+            size="lg"
+          >
+            Enter Fuel Log
+          </Button>
+        </div>
       </div>
 
       <Card className="shadow-lg">
@@ -256,6 +273,13 @@ const DriverTruck = () => {
         success={fuelLogSuccess}
         vehicleId={vehicle?.id}
         driverId={driverId}
+      />
+
+      {/* Fuel Log Side Panel */}
+      <FuelLogSidePanel
+        isOpen={isFuelLogPanelOpen}
+        onClose={() => setIsFuelLogPanelOpen(false)}
+        vehicleId={vehicle?.id}
       />
     </div>
   );

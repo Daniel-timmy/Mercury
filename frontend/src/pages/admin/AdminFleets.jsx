@@ -129,6 +129,15 @@ const AdminFleets = () => {
     const manager = managerResults.find((m) => m.id === managerId);
     return manager ? manager.name : "Unknown";
   };
+  const getDriversByManagerId = (fleetId) => {
+    if (fleetId) {
+      const fleet = fleetResults.find((f) => f.id === fleetId);
+
+      const drivers = driverResults.filter((d) => d.manager === fleet.manager);
+      return drivers;
+    }
+    return [];
+  };
   const getFleetName = (fleetId) => {
     const fleet = fleetResults.find((f) => f.id === fleetId);
     return fleet ? fleet.name : "Unknown";
@@ -231,7 +240,8 @@ const AdminFleets = () => {
         loading={vehicleOpLoading}
         error={vehicleOpError}
         success={vehicleOpSuccess}
-        drivers={driverResults}
+        drivers={getDriversByManagerId(selectedFleet)}
+        // drivers={driverResults}
         fleetId={selectedFleet}
         editMode={!!editingVehicle}
         vehicleData={editingVehicle}

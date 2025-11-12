@@ -1,5 +1,5 @@
 import django_filters
-from .models import Fleet, Vehicle, VehicleStatusLog
+from .models import Fleet, Vehicle, VehicleStatusLog, FuelLog
 from rest_framework import filters
 
 
@@ -24,4 +24,14 @@ class VehicleFilter(django_filters.FilterSet):
             'fuel_type': ['exact'],
             'ownership_status': ['exact'],
             'is_active': ['exact'],
+        }
+
+class FuelLogFilter(django_filters.FilterSet):
+    class Meta:
+        model = FuelLog
+        fields = {
+            'id': ['exact'],
+            'vehicle': ['exact'],
+            'driver': ['exact'],
+            'logged_at': ['exact', 'gte', 'lte'],
         }

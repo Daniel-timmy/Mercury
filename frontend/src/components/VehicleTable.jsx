@@ -12,7 +12,7 @@ import {
   Tooltip,
 } from "@heroui/react";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faEdit, faTrash, faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faEdit, faTrash, faPlus, faClipboardList } from "@fortawesome/free-solid-svg-icons";
 import { addToast } from "@heroui/react";
 
 /**
@@ -25,6 +25,7 @@ export function VehicleTable({
   onEdit,
   onDelete,
   onCreate,
+  onViewFuelLogs,
   drivers = [],
 }) {
   const [deletingId, setDeletingId] = useState(null);
@@ -124,7 +125,7 @@ export function VehicleTable({
             <TableColumn>FUEL TYPE</TableColumn>
             <TableColumn>OWNERSHIP</TableColumn>
             <TableColumn>MILEAGE (KM)</TableColumn>
-            <TableColumn>ACTIONS</TableColumn>
+            <TableColumn align="center">ACTIONS</TableColumn>
           </TableHeader>
           <TableBody>
             {vehicles.map((vehicle) => (
@@ -151,7 +152,20 @@ export function VehicleTable({
                   {vehicle.current_mileage_km.toLocaleString()}
                 </TableCell>
                 <TableCell>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 justify-center">
+                    {onViewFuelLogs && (
+                      <Tooltip content="View fuel logs">
+                        <Button
+                          isIconOnly
+                          size="sm"
+                          variant="light"
+                          color="secondary"
+                          onPress={() => onViewFuelLogs(vehicle)}
+                        >
+                          <FontAwesomeIcon icon={faClipboardList} />
+                        </Button>
+                      </Tooltip>
+                    )}
                     <Tooltip content="Edit vehicle">
                       <Button
                         isIconOnly

@@ -64,7 +64,7 @@ class TripViewSet(ModelViewSet):
     def update(self, request, *args, **kwargs):
         user = request.user
         trip = self.get_object()
-        if trip.manager == user or trip.driver == user:
+        if trip.manager == user:
             return super().update(request, *args, **kwargs)
         return Response({'detail': 'Only manager or assigned driver can update trips.'}, status=status.HTTP_403_FORBIDDEN)
     
@@ -73,7 +73,7 @@ class TripViewSet(ModelViewSet):
         user = request.user
         trip = self.get_object()
         if trip.manager != user and trip.driver != user:
-            return Response({'detail': 'Only manager or admin can update trips.'}, status=status.HTTP_403_FORBIDDEN)
+            return Response({'detail': 'Only manager or driver can update trips.'}, status=status.HTTP_403_FORBIDDEN)
 
         return super().partial_update(request, *args, **kwargs)
 

@@ -9,6 +9,8 @@ class Fleet(models.Model):
     manager = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='fleets')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    class Meta:
+        ordering = ['-name']
 
     def __str__(self):
          return self.name
@@ -27,7 +29,7 @@ class Vehicle(models.Model):
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    fleet = models.OneToOneField(Fleet, on_delete=models.CASCADE, related_name='vehicles')
+    fleet = models.ForeignKey(Fleet, on_delete=models.CASCADE, related_name='vehicles')
     driver = models.OneToOneField(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
     license_plate = models.CharField(max_length=20, unique=True)
     vehicle_type = models.CharField(max_length=50)  
@@ -41,6 +43,8 @@ class Vehicle(models.Model):
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    class Meta:
+        ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.license_plate} ({self.vehicle_type})"
@@ -63,18 +67,23 @@ class VehicleStatusLog(models.Model):
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, null=True, blank=True)
     # battery_level = models.IntegerField(null=True, blank=True)  # Phone battery % (from driver app)
     recorded_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        ordering = ['-recorded_at']
+
 
 class FuelLog(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
     vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='fuel_logs')
-    driver = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL)
+    driver = models.ForeignKey(settings.AUTH_USER_MODEL, null=False, blank=False, on_delete=models.DO_NOTHING)
     liters = models.DecimalField(max_digits=6, decimal_places=2)
     cost = models.DecimalField(max_digits=10, decimal_places=2)
     odometer_reading_km = models.IntegerField()
     fuel_station_name = models.CharField(max_length=100, null=True, blank=True)
     receipt_photo_url = models.TextField(null=True, blank=True)
     logged_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        ordering = ['-logged_at']
 
 class MaintenanceAlert(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -87,3 +96,6 @@ class MaintenanceAlert(models.Model):
     resolved_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']

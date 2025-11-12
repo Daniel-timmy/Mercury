@@ -7,6 +7,7 @@ import { useVehicleDataByManager } from "../../hooks/useVehicleDataByManager";
 import { useVehicleOperations } from "../../hooks/useVehicleOperations";
 import { CreateVehicleModal } from "../../components/CreateVehicleModal";
 import { VehicleTable } from "../../components/VehicleTable";
+import { FuelLogSidePanel } from "../../components/FuelLogSidePanel";
 import { addToast } from "@heroui/react";
 import api from "../../hooks/api";
 
@@ -15,6 +16,8 @@ const ManagerTrucks = () => {
   const [editingVehicle, setEditingVehicle] = useState(null);
   const [managerId, setManagerId] = useState(null);
   const [fleet, setFleet] = useState(null);
+  const [isFuelLogPanelOpen, setIsFuelLogPanelOpen] = useState(false);
+  const [selectedVehicleId, setSelectedVehicleId] = useState(null);
 
   // Fetch manager's fleet
   useEffect(() => {
@@ -118,6 +121,11 @@ const ManagerTrucks = () => {
     setIsVehicleModalOpen(true);
   };
 
+  const handleViewFuelLogs = (vehicle) => {
+    setSelectedVehicleId(vehicle.id);
+    setIsFuelLogPanelOpen(true);
+  };
+
   if (!managerId) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -143,6 +151,7 @@ const ManagerTrucks = () => {
               onEdit={handleEditVehicle}
               onDelete={handleDeleteVehicle}
               onCreate={handleCreateNewVehicle}
+              onViewFuelLogs={handleViewFuelLogs}
               drivers={driverResults}
             />
           </CardBody>
@@ -164,6 +173,13 @@ const ManagerTrucks = () => {
         fleetId={fleet ? fleet.id : null}
         editMode={!!editingVehicle}
         vehicleData={editingVehicle}
+      />
+
+      {/* Fuel Log Side Panel */}
+      <FuelLogSidePanel
+        isOpen={isFuelLogPanelOpen}
+        onClose={() => setIsFuelLogPanelOpen(false)}
+        vehicleId={selectedVehicleId}
       />
     </div>
   );

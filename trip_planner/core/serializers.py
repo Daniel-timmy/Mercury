@@ -235,7 +235,6 @@ class TripSerializer(serializers.ModelSerializer):
         return value
     
     def validate_pickup_location(self, value):
-        print("QWERTYYYYYYYYYYYYYYYTR")
         if not value or len(value.strip()) == 0:
             raise ValidationError({
                 "error": "Validation error",

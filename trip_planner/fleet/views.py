@@ -9,7 +9,7 @@ from rest_framework import filters
 from user.models import User
 from .models import Fleet, Vehicle, VehicleStatusLog, FuelLog, MaintenanceAlert
 from .serializers import FleetSerializer, VehicleSerializer, VehicleStatusLogSerializer, FuelLogSerializer, MaintenanceAlertSerializer
-from .filters import FleetFilter, VehicleFilter
+from .filters import FleetFilter, VehicleFilter, FuelLogFilter
 # Create your views here.
 
 
@@ -27,7 +27,7 @@ class FleetViewSet(ModelViewSet):
         if type(user) != User:
             return Fleet.objects.none()
         if user.role == 'admin':
-            return self.queryset
+            return self.queryset.all().order_by('name')
         elif user.role == 'manager':
             return self.queryset.filter(manager=user)
         return Fleet.objects.none()
@@ -99,15 +99,18 @@ class FuelLogViewSet(ModelViewSet):
     queryset = FuelLog.objects.all()
     serializer_class = FuelLogSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_class = FuelLogFilter
+    ordering_fields = ['logged_at']
 
     def get_queryset(self):
         user = self.request.user
         if type(user) != User:
             return FuelLog.objects.none()
         if user.role == 'driver':
-            return self.queryset.filter(driver=user)
+            return self.queryset.filter(driver=user).order_by('-logged_at')
         elif user.role in ['manager', 'admin']:
-            return self.queryset
+            return self.queryset.all().order_by('-logged_at')
         return FuelLog.objects.none()
 
     def create(self, request, *args, **kwargs):

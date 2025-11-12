@@ -51,6 +51,8 @@ class VehicleSerializer(serializers.ModelSerializer):
         driver = attrs.get('driver')
         if driver and fleet and hasattr(driver, 'role') and driver.role != 'driver':
             raise ValidationError("Assigned driver must have role 'driver'.")
+        if (driver and fleet) and driver.manager != fleet.manager:
+            raise ValidationError("Assigned driver must also be managed by the fleet manager")
         
         return attrs
 
@@ -84,7 +86,9 @@ class FuelLogSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         receipt_image = validated_data.pop('receipt_image', None)
-        fuel_log = super().create(validated_data)
+        fuel_log = super().create(
+        validated_data,
+        )
 
         if receipt_image:
             unique_filename = f"temp_{uuid.uuid4().hex}_{receipt_image.name}"
@@ -118,6 +122,11 @@ class FuelLogSerializer(serializers.ModelSerializer):
     def validate_vehicle(self, value):
         if not value:
             raise ValidationError("Vehicle is required.")
+        return value
+    
+    def validate_driver(self, value):
+        if not value or not hasattr(value, 'role') or value.role != 'driver':
+            raise ValidationError("Driver must have role 'driver'.")
         return value
 
     # def validate(self, attrs):
