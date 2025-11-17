@@ -10,16 +10,27 @@ import {
 } from "@heroui/react";
 import Cookies from "js-cookie";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { faGasPump, faClipboardList } from "@fortawesome/free-solid-svg-icons";
+import {
+  faGasPump,
+  faClipboardList,
+  faWrench,
+  faBell,
+} from "@fortawesome/free-solid-svg-icons";
 import { useVehicleData } from "../../hooks/useVehicleData";
 import { useFuelLog } from "../../hooks/useFuelLog";
+import { useMaintenanceAlert } from "../../hooks/useMaintenanceAlert";
 import { FuelLogModal } from "../../components/FuelLogModal";
 import { FuelLogSidePanel } from "../../components/FuelLogSidePanel";
+import { MaintenanceAlertModal } from "../../components/MaintenanceAlertModal";
+import { MaintenanceAlertSidePanel } from "../../components/MaintenanceAlertSidePanel";
 import { addToast } from "@heroui/react";
 
 const DriverTruck = () => {
   const [isFuelModalOpen, setIsFuelModalOpen] = useState(false);
   const [isFuelLogPanelOpen, setIsFuelLogPanelOpen] = useState(false);
+  const [isMaintenanceModalOpen, setIsMaintenanceModalOpen] = useState(false);
+  const [isMaintenancePanelOpen, setIsMaintenancePanelOpen] = useState(false);
+  const [editingAlert, setEditingAlert] = useState(null);
   const [driverId, setDriverId] = useState(null);
   const [vehicle, setVehicle] = useState(null);
 
@@ -61,6 +72,15 @@ const DriverTruck = () => {
     success: fuelLogSuccess,
   } = useFuelLog();
 
+  // Maintenance alert hook
+  const {
+    createMaintenanceAlert,
+    updateMaintenanceAlert,
+    loading: maintenanceLoading,
+    error: maintenanceError,
+    success: maintenanceSuccess,
+  } = useMaintenanceAlert();
+
   const handleCreateFuelLog = async (fuelLogData) => {
     const result = await createFuelLog(fuelLogData);
     if (result) {
@@ -71,6 +91,36 @@ const DriverTruck = () => {
         // The panel will auto-refresh when it detects new data
       }
     }
+  };
+
+  const handleCreateMaintenanceAlert = async (alertData) => {
+    const result = await createMaintenanceAlert(alertData);
+    if (result) {
+      setIsMaintenanceModalOpen(false);
+      setEditingAlert(null);
+      // The panel will auto-refresh when it detects new data
+    }
+  };
+
+  const handleUpdateMaintenanceAlert = async (alertData) => {
+    if (editingAlert) {
+      const result = await updateMaintenanceAlert(editingAlert.id, alertData);
+      if (result) {
+        setIsMaintenanceModalOpen(false);
+        setEditingAlert(null);
+        // The panel will auto-refresh when it detects new data
+      }
+    }
+  };
+
+  const handleEditAlert = (alert) => {
+    setEditingAlert(alert);
+    setIsMaintenanceModalOpen(true);
+  };
+
+  const handleCreateNewAlert = () => {
+    setEditingAlert(null);
+    setIsMaintenanceModalOpen(true);
   };
 
   const getFuelTypeColor = (fuelType) => {
@@ -150,7 +200,7 @@ const DriverTruck = () => {
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">My Vehicle</h1>
-        <div className="flex gap-3">
+        <div className="flex gap-3 flex-wrap">
           <Button
             color="secondary"
             variant="flat"
@@ -167,6 +217,23 @@ const DriverTruck = () => {
             size="lg"
           >
             Enter Fuel Log
+          </Button>
+          <Button
+            color="warning"
+            variant="flat"
+            startContent={<FontAwesomeIcon icon={faBell} />}
+            onPress={() => setIsMaintenancePanelOpen(true)}
+            size="lg"
+          >
+            View Alerts
+          </Button>
+          <Button
+            color="warning"
+            startContent={<FontAwesomeIcon icon={faWrench} />}
+            onPress={handleCreateNewAlert}
+            size="lg"
+          >
+            Create Alert
           </Button>
         </div>
       </div>
@@ -280,6 +347,32 @@ const DriverTruck = () => {
         isOpen={isFuelLogPanelOpen}
         onClose={() => setIsFuelLogPanelOpen(false)}
         vehicleId={vehicle?.id}
+      />
+
+      {/* Maintenance Alert Modal */}
+      <MaintenanceAlertModal
+        isOpen={isMaintenanceModalOpen}
+        onClose={() => {
+          setIsMaintenanceModalOpen(false);
+          setEditingAlert(null);
+        }}
+        onSubmit={
+          editingAlert ? handleUpdateMaintenanceAlert : handleCreateMaintenanceAlert
+        }
+        loading={maintenanceLoading}
+        error={maintenanceError}
+        success={maintenanceSuccess}
+        vehicleId={vehicle?.id}
+        editMode={!!editingAlert}
+        alertData={editingAlert}
+      />
+
+      {/* Maintenance Alert Side Panel */}
+      <MaintenanceAlertSidePanel
+        isOpen={isMaintenancePanelOpen}
+        onClose={() => setIsMaintenancePanelOpen(false)}
+        vehicleId={vehicle?.id}
+        onEdit={handleEditAlert}
       />
     </div>
   );

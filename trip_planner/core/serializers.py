@@ -381,8 +381,6 @@ class LogSheetSerializer(serializers.ModelSerializer):
         return value
 
 
-
-
 class LogEntrySerializer(serializers.ModelSerializer):
     """
     Serializer for creating and managing individual log entries.
@@ -530,7 +528,6 @@ class LogEntrySerializer(serializers.ModelSerializer):
             })
     
     
-
     def validate(self, attrs: Dict[str, Any]) -> Dict[str, Any]:
         logger.debug("LogEntry.validate called: log_id=%s span=%s startTime=%s duty_status=%s", attrs.get("log_id"), attrs.get("span"), attrs.get("startTime"), attrs.get("duty_status"))
         """Validate incoming log entry data before attempting DB writes.

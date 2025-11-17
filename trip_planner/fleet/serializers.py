@@ -147,6 +147,16 @@ class MaintenanceAlertSerializer(serializers.ModelSerializer):
             raise ValidationError("Alert type is required.")
         return value
 
+    def validate_vehicle(self, value):
+        if not value and type(value) != Vehicle:
+            raise ValidationError("Vehicle is required.")
+        return value  
+    
+    def validate_notes(self, value):
+        if value and len(value.strip()) == 0:
+            raise ValidationError("Notes cannot be empty if provided.")
+        return value
+
     def validate(self, attrs):
         # If resolved, resolved_at must be set
         if attrs.get('is_resolved') and not attrs.get('resolved_at'):

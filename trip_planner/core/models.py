@@ -167,3 +167,6 @@ class DriverPosition(models.Model):
     
     timestamp = models.DateTimeField()
     created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-timestamp']

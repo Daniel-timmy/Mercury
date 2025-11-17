@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
-import { Button, Card, CardBody, Spinner } from "@heroui/react";
+import { Card, CardBody, Spinner } from "@heroui/react";
 import Cookies from "js-cookie";
 import { usePersonnelData } from "../../hooks/usePersonnelData";
 import { useVehicleData } from "../../hooks/useVehicleData";
-import { useVehicleDataByManager } from "../../hooks/useVehicleDataByManager";
 import { useVehicleOperations } from "../../hooks/useVehicleOperations";
 import { CreateVehicleModal } from "../../components/CreateVehicleModal";
 import { VehicleTable } from "../../components/VehicleTable";
 import { FuelLogSidePanel } from "../../components/FuelLogSidePanel";
+import { MaintenanceAlertSidePanel } from "../../components/MaintenanceAlertSidePanel";
+
 import { addToast } from "@heroui/react";
 import api from "../../hooks/api";
 
@@ -18,6 +19,7 @@ const ManagerTrucks = () => {
   const [fleet, setFleet] = useState(null);
   const [isFuelLogPanelOpen, setIsFuelLogPanelOpen] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState(null);
+  const [isMaintenancePanelOpen, setIsMaintenancePanelOpen] = useState(false);
 
   // Fetch manager's fleet
   useEffect(() => {
@@ -138,6 +140,15 @@ const ManagerTrucks = () => {
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold">My Fleet Vehicles</h1>
+        <Button
+          color="warning"
+          variant="flat"
+          startContent={<FontAwesomeIcon icon={faBell} />}
+          onPress={() => setIsMaintenancePanelOpen(true)}
+          size="lg"
+        >
+          View Alerts
+        </Button>
       </div>
 
       <div className="space-y-6">
@@ -180,6 +191,13 @@ const ManagerTrucks = () => {
         isOpen={isFuelLogPanelOpen}
         onClose={() => setIsFuelLogPanelOpen(false)}
         vehicleId={selectedVehicleId}
+      />
+      {/* Maintenance Alert Side Panel */}
+      <MaintenanceAlertSidePanel
+        isOpen={isMaintenancePanelOpen}
+        onClose={() => setIsMaintenancePanelOpen(false)}
+        onEdit={handleEditAlert}
+        url={`maintenance-alerts/?is_resolved=False`}
       />
     </div>
   );

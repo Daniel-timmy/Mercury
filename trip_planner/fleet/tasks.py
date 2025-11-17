@@ -11,8 +11,6 @@ def upload_file(file_path: str, folder: str, obj_id: str):
     """Handle file upload and store in Vercel Blob."""
     if not file_path:
         return {"error": "missing file"}
-    print("Uploading file to Vercel Blob...")
-    print(file_path)
 
     async def async_upload():
         try:
@@ -25,7 +23,6 @@ def upload_file(file_path: str, folder: str, obj_id: str):
                     access="public",
                     add_random_suffix=True,
                 )
-                print("Upload successful:", blob)
                 if type(blob) is PutBlobResult:
                     obj = await sync_to_async(FuelLog.objects.get)(id=obj_id)
                     obj.receipt_photo_url = blob.url
@@ -39,3 +36,10 @@ def upload_file(file_path: str, folder: str, obj_id: str):
             raise Exception(f"File upload failed: {str(e)}")
 
     return asyncio.run(async_upload())
+
+
+@shared_task
+def send_maintenance_alerts(obj_id: str):
+    """Task to send maintenance alerts for vehicles."""
+    from .utils import check_and_send_maintenance_alerts
+    check_and_send_maintenance_alerts()

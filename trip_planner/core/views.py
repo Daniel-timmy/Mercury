@@ -13,6 +13,7 @@ from rest_framework import filters
 from django_filters.rest_framework import DjangoFilterBackend
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from rest_framework.decorators import action
 # from django.contrib.gis.geos import Point
 import logging
 
@@ -185,14 +186,41 @@ class DriverPositionViewSet(ModelViewSet):
     """
     queryset = DriverPosition.objects.all()
     lookup_field = 'id'
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
     serializer_class = DriverPositionSerializer
     permission_classes = [IsAuthenticated]
+    ordering_fields = ['timestamp']
+
+    @action(detail=False, methods=['get'], url_path='interval')
+    def interval(self, request, *args, **kwargs):
+        """
+        Custom action that retrieves driver's position at specified database intervals.
+        """
+        user = request.user
+        if not user or type(user) != User:
+            return Response({'detail': 'Authentication credentials were not provided.'}, status=status.HTTP_401_UNAUTHORIZED)
+        if user.role not in ['driver', 'manager']:
+            return Response({'detail': 'You do not have permission to access this resource.'}, status=status.HTTP_403_FORBIDDEN)
+        
+        step = int(request.query_params.get('step', 10))
+        trip_id = request.query_params.get('trip', None)
+        if trip_id:
+            trip = Trip.objects.filter(id=trip_id).first()
+            positions = DriverPosition.objects.filter(driver=user, trip=trip).order_by('timestamp')
+        else:
+            positions = DriverPosition.objects.filter(driver=user).order_by('timestamp')
+        interval_positions = positions[::step]
+        page = self.paginate_queryset(interval_positions)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(interval_positions, many=True)
+        return Response(serializer.data)
 
     def create(self, request, *args, **kwargs):
         try:
 
-            super().create(request, *args, **kwargs)
+            data = super().create(request, *args, **kwargs)
 
             manager_id = request.user.manager.id
             print("Manager ID for DriverPosition notification:", manager_id)
@@ -218,6 +246,7 @@ class DriverPositionViewSet(ModelViewSet):
                     }
                 }
             )
+            return data
         except ValueError as ve:
             logger.error(f"Invalid data provided for DriverPosition: {ve}")
             return Response({'detail': 'Invalid data provided.'}, status=status.HTTP_400_BAD_REQUEST)

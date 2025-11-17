@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'core',
     'user',
     'fleet',
+    'chats',
     'rest_framework',
     'rest_framework_simplejwt',
     'corsheaders',

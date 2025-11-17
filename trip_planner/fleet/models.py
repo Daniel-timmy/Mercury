@@ -88,7 +88,7 @@ class FuelLog(models.Model):
 class MaintenanceAlert(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    vehicle = models.ForeignKey(Vehicle, on_delete=models.CASCADE, related_name='maintenance_alerts')
+    vehicle = models.ForeignKey(Vehicle, null=False, on_delete=models.DO_NOTHING, related_name='maintenance_alerts')
     alert_type = models.CharField(max_length=50)  # 'Oil Change', 'Tire Rotation', etc.
     # due_at_km = models.IntegerField(null=True, blank=True)
     # due_at_date = models.DateField(null=True, blank=True)

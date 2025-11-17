@@ -34,7 +34,8 @@ import { jwtDecode } from "jwt-decode";
 import Cookies from "js-cookie";
 import { Navigate } from "react-router-dom";
 import "./App.css";
-import usePositionRealTime from "./hooks/usePositionRealTime";
+// import usePositionRealTime from "./hooks/usePositionRealTime";
+import { DriverPositionProvider } from "./context/DriverPositionContext";
 
 function LogOut() {
   const token = Cookies.get("access");
@@ -58,60 +59,61 @@ function LogOut() {
 }
 
 function App() {
-  usePositionRealTime();
+  // usePositionRealTime();
   return (
     <HeroUIProvider>
       <ToastProvider placement="top-right" />
-
-      <BrowserRouter>
-        <Routes>
-          {/* <Route path="/" element={<DriverDashboard />} /> */}
-          <Route path="/manager/login" element={<ManagerLogin />} />
-          <Route path="/driver/login" element={<DriverLogin />} />
-          <Route path="/admin/auth" element={<AdminAuth />} />
-          <Route
-            path="/admin/"
-            element={
-              <ProtectedAdminRoute>
-                <AdminLayout />
-              </ProtectedAdminRoute>
-            }
-          >
-            <Route path="dashboard" element={<div>Admin Dashboard</div>} />
-            <Route path="personnels" element={<AdminPersonnel />} />
-            <Route path="trip/:id" element={<AdminTrip />} />
-            <Route path="fleets" element={<AdminFleets />} />
-          </Route>
-          <Route
-            path="/manager/"
-            element={
-              <ProtectedManagerRoute>
-                <ManagerLayout />
-              </ProtectedManagerRoute>
-            }
-          >
-            <Route path="dashboard" element={<div>Manager Dashboard</div>} />
-            <Route path="drivers" element={<ManagerPersonnel />} />
-            <Route path="trip/:id" element={<ManagerTrip />} />
-            <Route path="new/trip" element={<CreateTrip />} />
-            <Route path="map" element={<ManagerMap />} />
-            <Route path="trucks" element={<ManagerTrucks />} />
-          </Route>
-          <Route
-            path="/driver/"
-            element={
-              <ProtectedDriverRoute>
-                <DriverLayout />
-              </ProtectedDriverRoute>
-            }
-          >
-            <Route path="dashboard" element={<div>Driver Dashboard</div>} />
-            <Route path="trip/:id" element={<DriverTrip />} />
-            <Route path="truck" element={<DriverTruck />} />
-          </Route>
-          <Route path="/logout" element={<LogOut />} />
-        </Routes>
-      </BrowserRouter>
+      <DriverPositionProvider>
+        <BrowserRouter>
+          <Routes>
+            {/* <Route path="/" element={<DriverDashboard />} /> */}
+            <Route path="/manager/login" element={<ManagerLogin />} />
+            <Route path="/driver/login" element={<DriverLogin />} />
+            <Route path="/admin/auth" element={<AdminAuth />} />
+            <Route
+              path="/admin/"
+              element={
+                <ProtectedAdminRoute>
+                  <AdminLayout />
+                </ProtectedAdminRoute>
+              }
+            >
+              <Route path="dashboard" element={<div>Admin Dashboard</div>} />
+              <Route path="personnels" element={<AdminPersonnel />} />
+              <Route path="trip/:id" element={<AdminTrip />} />
+              <Route path="fleets" element={<AdminFleets />} />
+            </Route>
+            <Route
+              path="/manager/"
+              element={
+                <ProtectedManagerRoute>
+                  <ManagerLayout />
+                </ProtectedManagerRoute>
+              }
+            >
+              <Route path="dashboard" element={<div>Manager Dashboard</div>} />
+              <Route path="drivers" element={<ManagerPersonnel />} />
+              <Route path="trip/:id" element={<ManagerTrip />} />
+              <Route path="new/trip" element={<CreateTrip />} />
+              <Route path="map" element={<ManagerMap />} />
+              <Route path="trucks" element={<ManagerTrucks />} />
+            </Route>
+            <Route
+              path="/driver/"
+              element={
+                <ProtectedDriverRoute>
+                  <DriverLayout />
+                </ProtectedDriverRoute>
+              }
+            >
+              <Route path="dashboard" element={<div>Driver Dashboard</div>} />
+              <Route path="trip/:id" element={<DriverTrip />} />
+              <Route path="truck" element={<DriverTruck />} />
+            </Route>
+            <Route path="/logout" element={<LogOut />} />
+          </Routes>
+        </BrowserRouter>
+      </DriverPositionProvider>
     </HeroUIProvider>
   );
 }

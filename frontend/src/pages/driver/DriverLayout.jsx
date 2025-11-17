@@ -18,7 +18,7 @@ const DriverLayout = () => {
 
   return (
     <div className="flex">
-      <div className="w-80">
+      <div className="lg:w-80">
         <SidePanel mainMenuItems={mainMenuItems} />
       </div>
       <div className="flex-1">

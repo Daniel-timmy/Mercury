@@ -7,9 +7,9 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters
 
 from user.models import User
-from .models import Fleet, Vehicle, VehicleStatusLog, FuelLog, MaintenanceAlert
-from .serializers import FleetSerializer, VehicleSerializer, VehicleStatusLogSerializer, FuelLogSerializer, MaintenanceAlertSerializer
-from .filters import FleetFilter, VehicleFilter, FuelLogFilter
+from .models import Fleet, Vehicle, FuelLog, MaintenanceAlert
+from .serializers import FleetSerializer, VehicleSerializer, FuelLogSerializer, MaintenanceAlertSerializer
+from .filters import FleetFilter, VehicleFilter, FuelLogFilter, MaintenanceAlertFilter
 # Create your views here.
 
 
@@ -128,19 +128,27 @@ class MaintenanceAlertViewSet(ModelViewSet):
     queryset = MaintenanceAlert.objects.all()
     serializer_class = MaintenanceAlertSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
+    filterset_class = MaintenanceAlertFilter
+    ordering_fields = ['created_at', 'resolved_at']
 
     def get_queryset(self):
         user = self.request.user
         if type(user) != User:
             return MaintenanceAlert.objects.none()
         if user.role == 'driver':
-            return self.queryset.filter(vehicle__fuel_logs__driver=user)
-        elif user.role in ['manager', 'admin']:
-            return self.queryset
+            return self.queryset.filter(vehicle__driver=user).order_by('-created_at')
+        elif user.role == 'manager':
+            return self.queryset.filter(vehicle__fleet__manager=user).order_by('-created_at')
+        elif user.role == 'admin':
+            return self.queryset.all().order_by('-created_at')
         return MaintenanceAlert.objects.none()
 
     def create(self, request, *args, **kwargs):
-        if request.user.role != 'driver':
+        user: User = request.user
+        if not user or type(user) != User:
+            return Response({'detail': 'Unautheticated user'}, status=status.HTTP_401_UNAUTHORIZED)
+        if user.role != 'driver':
             return Response({'detail': 'Only drivers can create maintenance alerts.'}, status=status.HTTP_403_FORBIDDEN)
         return super().create(request, *args, **kwargs)
 

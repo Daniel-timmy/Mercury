@@ -1,5 +1,5 @@
 import django_filters
-from .models import Fleet, Vehicle, VehicleStatusLog, FuelLog
+from .models import Fleet, Vehicle, VehicleStatusLog, FuelLog,  MaintenanceAlert
 from rest_framework import filters
 
 
@@ -34,4 +34,16 @@ class FuelLogFilter(django_filters.FilterSet):
             'vehicle': ['exact'],
             'driver': ['exact'],
             'logged_at': ['exact', 'gte', 'lte'],
+        }
+
+class MaintenanceAlertFilter(django_filters.FilterSet):
+    class Meta:
+        model = MaintenanceAlert
+        fields = {
+            'id': ['exact'],
+            'vehicle': ['exact'],
+            'alert_type': ['exact', 'icontains'],
+            'is_resolved': ['exact'],
+            'created_at': ['exact', 'gte', 'lte'],
+            'resolved_at': ['exact', 'gte', 'lte'],
         }
